@@ -127,9 +127,10 @@ const gameState = (function() {
 
 const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
 
-    const gameObj = gameState.getGame();
-    const players = plyrMngr.getPlayers();
-    const card = cardMngr.getCardObj();
+    const gameObj = gameState.getGame(); // used often as a cross reference for getting player data
+    const players = plyrMngr.getPlayers(); // used with gameObj as a cross reference - may be better to add perm 
+    // variables for players rather than wrestling with sometimes confusing queries
+    const card = cardMngr.getCardObj(); // so far it hasn't been used so consider deleting
 
     const cardCtrl = cardMngr;
     const gameCtrl = gameState;
@@ -139,8 +140,16 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
 
     function action( fnc, nxtFnc, data ) { return fnc( nxtFnc, data ); };
 
+    //  These are all high level actions taken at a game level 
+    //  Including what actions to take if a new game starts, a game ends
+    //
     const game = {
         new() {
+            cardCtrl.resetDeck();
+            cardCtrl.init();
+            gameCtrl.reset();
+            playerCtrl.reset();
+
             return action( round.firstRound );
         },
         swapActivePlayer( nxtFnc ) {
@@ -154,7 +163,10 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
 
         }
     }
-    
+
+    //  These are mid level actions 
+    //  I've broken these out so that they dont get lost within the phases of 
+    //  play within the game
     const round = {
         firstRound() {
             action( round.addRound );
@@ -187,32 +199,46 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
         },
     };
 
+    //  These are the vast majority of player controlled actions 
+    //  It is split up into One, Two, Three 
+    //  One is the card pick round - the active player gets to choose the first two cards, the other play recieves the rest
+    //  Two is a deck management round where players can choose to move their cards or splice them together
+    //  Three is an automated round where battles take place - I need to put a check around this so regular game actions can not be taken if the game is finished -
+    //  though I may just leave that for the UI where it will be easier to do so.
     const phase = {
         currPlyr: 'active',
         activePhase: 1,
         One: {
+            // - start is the official starting point and is only called once 
+            // - continue will be called when a player picks a card and will also trigger phase two when the criteria are met 
+            //   (criteria are there is only 3 cards left in fiveCardArr)
             start() {
                 action( phase.One.getFiveCards, phase.One.dispFiveCardArr );
+                console.log(`Player ${gameObj[phase.currPlyr][0] + 1}, please choose a card using pickCard(id)`);
                 phase.activePhase = 2;
                 phase.currPlyr = 'active';
             },
             continue() {
                 if(arrFiveCards.length > 3) {
-                    console.log(`Player ${gameObj.active[0] + 1}, please select a card using selectCard(id)`);
+                    console.log(`Player ${gameObj[phase.currPlyr][0] + 1}, please choose a card using pickCard(id)`);
                 } else {
                     action( phase.One.pushRestToPlayer );
                     action( phase.Two.start );
                 }
             },
+            //  This section controls the five cards that you can get from the primary deck
+            //  I feel like it's fairly refined and doesn't repeat itself - though there is a case that there is a 
+            //  lot of duplication when it comes to referencing 
+            //
             getFiveCards( nxtFnc ) {
-                cardMngr.getFiveCards( arrFiveCards );
+                action( cardCtrl.getFiveCards, arrFiveCards );
                 nxtFnc();
             },
             dispFiveCardArr() {
                 console.log('------------------------------------------------------');
                 for(const [i, card] of arrFiveCards.entries()) console.log(`Card ${i}: ${card.name} | Attack: ${card.attack} | defense: ${card.defense}`);
                 console.log('------------------------------------------------------');
-                console.log(`Player ${gameObj[phase.currPlyr][0] + 1}, please choose a card!`);
+                
             },
             pushChosenCardToPlayer( data ) {
                 const [id, type] = data;
@@ -233,27 +259,33 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
             },
             removeCardFromFiveCards( id ) {
                 arrFiveCards.splice(id, 1);
-            }
+            },
+            // 
+            //    This is a player taken action that can be called using the function pickCard() (defined outside of the code)
+            //
+            selectCard( id ) {
+                action( phase.One.pushChosenCardToPlayer, [id, 'active'] );
+                console.log(` - Player ${gameObj.active[0] + 1} chose the ${arrFiveCards[id].name} card!`);
+                action( phase.One.removeCardFromFiveCards, id );
+                action( phase.One.dispFiveCardArr );
+                action( phase.One.continue );
+            },
         },
-        selectCard( id ) {
-            action( phase.One.pushChosenCardToPlayer, [id, 'active'] );
-            console.log(` - Player ${gameObj.active[0] + 1} chose the ${arrFiveCards[id].name} card!`);
-            action( phase.One.removeCardFromFiveCards, id );
-            action( phase.One.dispFiveCardArr );
-            action( phase.One.continue );
-        },
+        // This is phase two
+        // I feel like it is currently on the messy side but that may be due to large amounts of console.logs - for the sake of continued testing I may write 
+        // a function that can take multiple string arrays and console.log them in order. FOR THE NEATNESS.
         Two: {
             start() {
                 phase.activePhase = 2;
                 phase.currPlyr = 'active';
                 action( phase.Two.promptPlyr );
             },
-            promptPlyr() {
+            promptPlyr() {  // Player info
                 console.log(' ');
                 console.log(`Player ${gameObj[phase.currPlyr][0] + 1}, please manage your deck! The following commands are available:`);
                 console.log(` `);
-                console.log('seeMyDecks() - view your hand, attack and defense deck');
-                console.log(`moveMyCard('fromDeck', 'toDeck', cardId) - move a card to another deck`);
+                console.log('seeDecks() - view your hand, attack and defense deck');
+                console.log(`moveCard('fromDeck', 'toDeck', cardId) - move a card to another deck`);
                 console.log(`         from and to options - 'hand', 'attack', 'defense'`);
                 console.log(`spliceCards('name', idOne, idTwo) - Splice two cards together and get a new one back`);
                 console.log(`          only works on cards in your hand`);
@@ -262,13 +294,15 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
                 console.log(`         If you are the opposite player this will end the round and move through`);
                 console.log(`         the battle phase automatically.`);
             },
+            // Player function to display the current players deck.
             viewDecks() {
-                console.log(` `);
-                console.log(`- You have chosen to view your deck`);
+                console.log(` `);  // Player info
+                console.log(`- You have chosen to view your deck`);  // Player info
                 const decks = ['hand', 'attack', 'defense'];
                 for (let i = 0; i < 3; i++) {
                     let attack = 0;
                     let defense = 0;
+
                     i === 0 ? console.log(`In your ${decks[i]}: `) : console.log(`In your ${decks[i]} deck: `);
                     const arr = players[gameObj[phase.currPlyr][0]][decks[i]];
                     for (const [i, card] of arr.entries()) {
@@ -276,17 +310,19 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
                         attack += card.attack;
                         defense += card.defense;
                     }
-                    console.log(`This hand has ${attack} attack and ${defense} defense`);
-                    console.log('------------------------------------------------------');
+                    console.log(`This hand has ${attack} attack and ${defense} defense`); // Player info
+                    console.log('------------------------------------------------------'); // Player info
                 }
-                console.log(`It is player ${gameObj[phase.currPlyr][0] + 1} go... please use help() to see more options`);
+                console.log(`It is player ${gameObj[phase.currPlyr][0] + 1} go... please use help() to see more options`); // Player info
             },
+            // Player function to move a card from one deck to another using the id
             moveCard( from, to, id ) {
-                console.log(`- You have chosen to move ${players[gameObj[phase.currPlyr][0]][from][id].name} to the ${to} deck.`);
+                console.log(`- You have chosen to move ${players[gameObj[phase.currPlyr][0]][from][id].name} to the ${to} deck.`); // Player prompt
                 players[gameObj[phase.currPlyr][0]][to].push( players[gameObj[phase.currPlyr][0]][from][id] );
                 players[gameObj[phase.currPlyr][0]][from].splice(id, 1);
                 action( phase.Two.resetIds );
             },
+            // written in a slightly confusing manner thanks to the references and is an example where you can't really tell what is being referenced.
             resetIds() {
                 const decks = ['hand', 'attack', 'defense'];
                 for (let i = 0; i < 3; i++) {
@@ -294,28 +330,60 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
                     for (let j = 0; j < arr.length; j++) arr[j].id = j;
                 }
             },
+            // Player function to splice two cards togerher
+            // Written to just get it working, this needs a lot of reworking
+
+            // Found a bug 
+            /* 
+            - You have chosen to view your deck
+                app.js:306 In your hand: 
+                app.js:309 Card 0: Wolf | Attack: 3 | Defense: 3
+                app.js:309 Card 1: Wolf | Attack: 3 | Defense: 3
+                app.js:309 Card 2: Elephant | Attack: 2 | Defense: 6
+                app.js:313 This hand has 8 attack and 12 defense
+                app.js:314 ------------------------------------------------------
+                app.js:306 In your attack deck: 
+                app.js:313 This hand has 0 attack and 0 defense
+                app.js:314 ------------------------------------------------------
+                app.js:306 In your defense deck: 
+                app.js:313 This hand has 0 attack and 0 defense
+                app.js:314 ------------------------------------------------------
+                app.js:316 It is player 2 go... please use help() to see more options
+                undefined
+                spliceCards('Wolfephant', 1, 2)
+                app.js:336  - You have chosen to splice a new card!
+                app.js:299  
+                app.js:300 - You have chosen to view your deck
+                app.js:306 In your hand: 
+                app.js:309 Card 0: Elephant | Attack: 2 | Defense: 6
+                app.js:309 Card 1: Wolfephant | Attack: 5 | Defense: 11
+                app.js:313 This hand has 7 attack and 17 defense
+            */
             splice(name, parentOne, parentTwo) {
-                console.log(` - You have chosen to splice a new card!`);
+                console.log(` - You have chosen to splice a new card!`); // player info
 
                 if( players[gameObj[phase.currPlyr][0]].hand.length < parentTwo ) {
-                    return console.log(`Error: please choose a valid card from your hand less than ${players[gameObj][phase.currPlyr][0].hand.length}`)
+                    return console.log(`Error: please choose a valid card from your hand less than ${players[gameObj][phase.currPlyr][0].hand.length}`); // player info - error
                 }
-                const p1name = action( phase.Two.getParentName, parentOne );
-                const p1id = action( phase.Two.getParentOriginalId, parentOne );
-                const p2name = action( phase.Two.getParentName, parentTwo );
-                const p2id = action( phase.Two.getParentOriginalId, parentTwo );
+                const p1name = action( phase.Two.getParentName, parentOne );     //   Code block gets information to pass into splicing
+                const p1id = action( phase.Two.getParentOriginalId, parentOne ); //   Would like to see if there was a neat method for doing this in one line
+                const p2name = action( phase.Two.getParentName, parentTwo );     //   Thinking destructor with a high level first function
+                const p2id = action( phase.Two.getParentOriginalId, parentTwo ); //
 
-                action( phase.Two.removeCardFromHand, p1name );
-                action( phase.Two.resetIds );
-                action( phase.Two.removeCardFromHand, p2name );
-                action( phase.Two.resetIds );
+                action( phase.Two.removeCardFromHand, p1name );  //   Code block removes the cards used for splicing from the player hand before moving forward
+                action( phase.Two.resetIds );                    //   Same with this code block - would like to rewrite to be neater
+                action( phase.Two.removeCardFromHand, p2name );  //
+                action( phase.Two.resetIds );                    //
 
-                const newCard = cardCtrl.spliceCard(name, p1id, p2id);
-                players[gameObj[phase.currPlyr][0]].hand.push(newCard);
+                const newCard = cardCtrl.spliceCard(name, p1id, p2id); // gets the new splicedcard
+                players[gameObj[phase.currPlyr][0]].hand.push(newCard); // pushes spliced card into player hand - can be moved 
 
-                action( phase.Two.resetIds );
-                action( phase.Two.viewDecks );
+                action( phase.Two.resetIds );  //  Can probably be moved into one code block / action.
+                action( phase.Two.viewDecks ); //
             },
+            //
+            //  These are all functions for splicing cards together
+            //
             getParentName( parent ) {
                 return players[gameObj[phase.currPlyr][0]].hand[parent].name;
             },
@@ -323,8 +391,12 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
                 return cardCtrl.getOriginalId(players[gameObj[phase.currPlyr][0]].hand[parent]);
             },
             removeCardFromHand( name ) {
+                // this line is not at all human readable, I get it and will turn it into nice code.
+                // also was difficult to write because of referencing objects so really need a nice way to do that
                 for (const currCard of players[gameObj[phase.currPlyr][0]].hand) if (name === currCard.name) players[gameObj[phase.currPlyr][0]].hand.splice(players[gameObj[phase.currPlyr][0]].hand[currCard.id] , 1);
             },
+            //  Switches the active player so that player two (or one on even rounds)
+            //  can do their card management.
             nextPlayer() {
                 if (phase.currPlyr === 'opposite') {
                     action( phase.Three.start );
@@ -336,28 +408,33 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
                 action( phase.Two.promptPlyr );
             },
         },
+        //
+        // This is the battle round and is largely console.logs
+        //
+        // During a battle we will check for the win condition and call that if it is met.
         Three: {
             start() {
                 console.log(`----------------------------------------------`);
                 console.log('Battle One!!!');
                 console.log(`----------------------------------------------`);
-                action( phase.Three.battle, [0, 1] );
+                action( phase.Three.battle, [0, 1] ); // calls the first battle passing through 0 - first player and 1 - second player
                 console.log(`----------------------------------------------`);
                 console.log('Battle Two!!!');
                 console.log(`----------------------------------------------`);
-                action( phase.Three.battle, [1, 0] );
+                action( phase.Three.battle, [1, 0] ); // see above comment
 
-                action( round.nextRound );
+                action( round.nextRound ); // at the end of the battles - start the next round 
             },
             battle( arr ) {
+                // not sure why i wrote the below - I think I just wanted some definite data to be passed in - bit weird really.
                 const attackingPlayer = arr[0] === 0 ? 0 : 1;
                 const defendingPlayer = arr[1] === 1 ? 1 : 0;
 
                 const [ attPlyrAtt, attPlyrDef, defPlyrAtt, defPlyrDef ] = action( phase.Three.getBattleStats, players[attackingPlayer].attack, players[defendingPlayer].defense );
 
-                console.log(`Player ${attackingPlayer + 1} will attack player ${defendingPlayer + 1}!`);
-                console.log(`Player ${attackingPlayer + 1} has ${attPlyrAtt} attack and ${attPlyrDef} defense`);
-                console.log(`Player ${defendingPlayer + 1} has ${defPlyrAtt} attack and ${defPlyrDef} defense`);
+                console.log(`Player ${attackingPlayer + 1} will attack player ${defendingPlayer + 1}!`);           // 
+                console.log(`Player ${attackingPlayer + 1} has ${attPlyrAtt} attack and ${attPlyrDef} defense`);   // Player prompt and largely irrelevant with the rest that we tell them
+                console.log(`Player ${defendingPlayer + 1} has ${defPlyrAtt} attack and ${defPlyrDef} defense`);   // 
 
                 action( phase.Three.attack, [attackingPlayer, defendingPlayer], attPlyrAtt );
                 console.log(`----------------------------------------------`);
@@ -366,6 +443,9 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
                 
                 action( phase.Two.resetIds );
             },
+            //   attack and defense are SHOCKINGLY similar and need rewriting to farm some of their functions out
+            //   during attack we check for the win condition
+            //
             attack( arr, attackPower ) {
                 let attack = attackPower;
                 const [ attacker, defender ] = arr;
@@ -385,11 +465,16 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
                     }
                 }
 
+                // remove defeated cards - no idea if this works yet
                 defendingDeck.splice(0, spliceNum);
 
+                // Check if player can attack opponent health
                 if(defendingDeck.length === 0 && attack > 0) {
+                    // Attack player health
                     players[defender].health -= attack;
+                    // Player prompt to say about it 
                     console.log(`Player ${attacker + 1} hits Player ${defender + 1}'s health for ${attack} attack. Player ${defender + 1}'s health is now ${players[defender].health}.`);
+                    // check for win condition
                     if(players[defender].health <= 0) {
                         action( game.finishGame );
                     }
@@ -413,6 +498,7 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
                     }
                 }
             },
+            // famred out functions to get attack and defense values and return as an array
             getBattleStats( arrOne, arrTwo ) {
                 return [ 
                     action( phase.Three.getBattleStat, arrOne, 'attack' ), 
@@ -432,11 +518,6 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
     
     return {
         init() {
-            cardCtrl.resetDeck();
-            cardCtrl.init();
-            gameCtrl.reset();
-            playerCtrl.reset();
-
             game.new();
         },
         getPhase() {
@@ -449,25 +530,25 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
 gameCtrl.init();
 
 const phaseCtrl = gameCtrl.getPhase();
-const pickCard = phaseCtrl.selectCard;
+const pickCard = phaseCtrl.One.selectCard;
 
-const seeMyDecks = phaseCtrl.Two.viewDecks;
-const moveMyCard = phaseCtrl.Two.moveCard;
+const seeDecks = phaseCtrl.Two.viewDecks;
+const moveCard = phaseCtrl.Two.moveCard;
 const spliceCards = phaseCtrl.Two.splice;
 const help = phaseCtrl.Two.promptPlyr;
 const nextPlayer = phaseCtrl.Two.nextPlayer;
 
-pickCard(0);
-pickCard(2);
+// pickCard(0);
+// pickCard(2);
 
-seeMyDecks();
-moveMyCard('hand', 'attack', 0);
-moveMyCard('hand', 'defense', 0);
+// seeMyDecks();
+// moveMyCard('hand', 'attack', 0);
+// moveMyCard('hand', 'defense', 0);
 
-nextPlayer();
-seeMyDecks();
-spliceCards('Carrot', 0, 1);
-moveMyCard('hand', 'attack', 0);
-moveMyCard('hand', 'defense', 0);
+// nextPlayer();
+// seeMyDecks();
+// spliceCards('Carrot', 0, 1);
+// moveMyCard('hand', 'attack', 0);
+// moveMyCard('hand', 'defense', 0);
 
-nextPlayer();
+// nextPlayer();
