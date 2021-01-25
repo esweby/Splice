@@ -11,13 +11,13 @@ const cardMngr = (function() {
             return card.action( card.checkParentDuplicate, arr, obj) || card.action( nxtFnc, arr, obj, card.getNewStats );
         },
         splice ( arr, obj, nxtFnc ) {
-            const [attack, health] = card.action( nxtFnc, arr, obj, card.getNewStat );
+            const [attack, defense] = card.action( nxtFnc, arr, obj, card.getNewStat );
             obj.attack = attack;
-            obj.health = health;
+            obj.defense = defense;
             return card.action( card.add, arr, obj);
         },
         getNewStats ( arr, obj, nxtFnc ) {
-            return [ card.action( nxtFnc, arr, obj, null, 'attack' ), card.action( nxtFnc, arr, obj, null, 'health' ) ];
+            return [ card.action( nxtFnc, arr, obj, null, 'attack' ), card.action( nxtFnc, arr, obj, null, 'defense' ) ];
         },
         checkDuplicate ( arr, obj ) {
             for (const currCard of arr) if (obj.name === currCard.name) return currCard;
@@ -42,7 +42,7 @@ const cardMngr = (function() {
             return Math.round((arr[obj.parents[0]][stat] + arr[obj.parents[1]][stat]) / 1.1) + (Math.round(Math.random() * (Math.round((arr[obj.parents[0]][stat] + arr[obj.parents[1]][stat]) / 1.5))));
         },
         multipleNewCards ( arrOfArr ) {
-            for ( const newCard of arrOfArr ) card.action( card.preAddChecks, deck, {name: newCard[0], health: newCard[1], attack: newCard[2]}, card.add );
+            for ( const newCard of arrOfArr ) card.action( card.preAddChecks, deck, {name: newCard[0], defense: newCard[1], attack: newCard[2]}, card.add );
         },
         resetDeck ( arr ) {
             arr.splice(0, arr.length);
@@ -149,21 +149,41 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
         swapActiveTo( [one, two] ) {
             gameObj.active = one;
             gameObj.opposite = two;
+        },
+        finishGame( ) {
+
         }
     }
     
     const round = {
         firstRound() {
-            action( phase.One.getFiveCards, phase.One.dispFiveCardArr );
+            action( round.addRound );
+            console.log(`------------------ Starting round ${gameObj.round} ------------------`);
+            console.log(` `);
             action( phase.One.start );
         },
         nextRound() {
-            action( phase.One.getFiveCards, phase.One.dispFiveCardArr );
-            action( phase.One.addRound, phase.One.nextStep );
+            console.log(` `);
+            console.log(`------------------ End of round ${gameObj.round} ------------------`);
+            console.log(` `);
+            action( round.addRound );
+            console.log(`------------------ Starting round ${gameObj.round} ------------------`);
+            console.log(` `);
+            action( phase.One.start );
         },
-        addRound( nxtFnc ) {
+        swapStartOrder() {
+            const one = [0, 'playerOne'];
+            const two = [1, 'playerTwo'];
+            if(game.active[0] === 0) {
+                game.active = two;
+                game.opposite = one;
+            } else {
+                game.active = one;
+                game.opposite = two;
+            }
+        },
+        addRound( ) {
             gameObj.round++;
-            nxtFnc();
         },
     };
 
@@ -172,8 +192,11 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
         activePhase: 1,
         One: {
             start() {
+                action( phase.One.getFiveCards, phase.One.dispFiveCardArr );
                 phase.activePhase = 2;
                 phase.currPlyr = 'active';
+            },
+            continue() {
                 if(arrFiveCards.length > 3) {
                     console.log(`Player ${gameObj.active[0] + 1}, please select a card using selectCard(id)`);
                 } else {
@@ -187,20 +210,22 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
             },
             dispFiveCardArr() {
                 console.log('------------------------------------------------------');
-                for(const [i, card] of arrFiveCards.entries()) console.log(`Card ${i}: ${card.name} | Attack: ${card.attack} | Health: ${card.health}`);
+                for(const [i, card] of arrFiveCards.entries()) console.log(`Card ${i}: ${card.name} | Attack: ${card.attack} | defense: ${card.defense}`);
                 console.log('------------------------------------------------------');
+                console.log(`Player ${gameObj[phase.currPlyr][0] + 1}, please choose a card!`);
             },
             pushChosenCardToPlayer( data ) {
                 const [id, type] = data;
                 const newCardObj = {
                     name: arrFiveCards[id].name,
-                    health: arrFiveCards[id].health,
+                    defense: arrFiveCards[id].defense,
                     attack: arrFiveCards[id].attack,
                     id: players[gameObj[type][0]].hand.length,
                 }
                 players[gameObj[type][0]].hand.push(newCardObj);
             },
             pushRestToPlayer() {
+                console.log(`Player ${gameObj.opposite[0] + 1} receives the ${arrFiveCards[0].name}, ${arrFiveCards[1].name} and ${arrFiveCards[2].name} cards!`);
                 for(let i = 0; i < 3; i++) {
                     action( phase.One.pushChosenCardToPlayer, [0, 'opposite'] );
                     action( phase.One.removeCardFromFiveCards, 0 );
@@ -212,10 +237,10 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
         },
         selectCard( id ) {
             action( phase.One.pushChosenCardToPlayer, [id, 'active'] );
-            console.log(`Player ${gameObj.active[0] + 1} chose the ${arrFiveCards[id].name} card!`);
+            console.log(` - Player ${gameObj.active[0] + 1} chose the ${arrFiveCards[id].name} card!`);
             action( phase.One.removeCardFromFiveCards, id );
             action( phase.One.dispFiveCardArr );
-            action( phase.One.start );
+            action( phase.One.continue );
         },
         Two: {
             start() {
@@ -224,9 +249,9 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
                 action( phase.Two.promptPlyr );
             },
             promptPlyr() {
-                console.log('------------------------------------------------------');
+                console.log(' ');
                 console.log(`Player ${gameObj[phase.currPlyr][0] + 1}, please manage your deck! The following commands are available:`);
-                console.log(``);
+                console.log(` `);
                 console.log('seeMyDecks() - view your hand, attack and defense deck');
                 console.log(`moveMyCard('fromDeck', 'toDeck', cardId) - move a card to another deck`);
                 console.log(`         from and to options - 'hand', 'attack', 'defense'`);
@@ -238,28 +263,29 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
                 console.log(`         the battle phase automatically.`);
             },
             viewDecks() {
-                
+                console.log(` `);
+                console.log(`- You have chosen to view your deck`);
                 const decks = ['hand', 'attack', 'defense'];
                 for (let i = 0; i < 3; i++) {
                     let attack = 0;
-                    let health = 0;
+                    let defense = 0;
                     i === 0 ? console.log(`In your ${decks[i]}: `) : console.log(`In your ${decks[i]} deck: `);
                     const arr = players[gameObj[phase.currPlyr][0]][decks[i]];
                     for (const [i, card] of arr.entries()) {
-                        console.log(`Card ${i}: ${card.name} | Attack: ${card.attack} | Health: ${card.health}`);
+                        console.log(`Card ${i}: ${card.name} | Attack: ${card.attack} | Defense: ${card.defense}`);
                         attack += card.attack;
-                        health += card.health;
+                        defense += card.defense;
                     }
-                    console.log(`This hand has ${attack} attack and ${health} health`);
+                    console.log(`This hand has ${attack} attack and ${defense} defense`);
                     console.log('------------------------------------------------------');
                 }
                 console.log(`It is player ${gameObj[phase.currPlyr][0] + 1} go... please use help() to see more options`);
             },
             moveCard( from, to, id ) {
+                console.log(`- You have chosen to move ${players[gameObj[phase.currPlyr][0]][from][id].name} to the ${to} deck.`);
                 players[gameObj[phase.currPlyr][0]][to].push( players[gameObj[phase.currPlyr][0]][from][id] );
                 players[gameObj[phase.currPlyr][0]][from].splice(id, 1);
                 action( phase.Two.resetIds );
-                action( phase.Two.viewDecks );
             },
             resetIds() {
                 const decks = ['hand', 'attack', 'defense'];
@@ -269,6 +295,7 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
                 }
             },
             splice(name, parentOne, parentTwo) {
+                console.log(` - You have chosen to splice a new card!`);
 
                 if( players[gameObj[phase.currPlyr][0]].hand.length < parentTwo ) {
                     return console.log(`Error: please choose a valid card from your hand less than ${players[gameObj][phase.currPlyr][0].hand.length}`)
@@ -311,18 +338,93 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
         },
         Three: {
             start() {
-                console.log('Starting Battle Phase!!!');
-                const battleStats = action( getBattleStats );
+                console.log(`----------------------------------------------`);
+                console.log('Battle One!!!');
+                console.log(`----------------------------------------------`);
+                action( phase.Three.battle, [0, 1] );
+                console.log(`----------------------------------------------`);
+                console.log('Battle Two!!!');
+                console.log(`----------------------------------------------`);
+                action( phase.Three.battle, [1, 0] );
+
+                action( round.nextRound );
             },
-            getBattleStats() {
-                for (const [i, card] of arr.entries()) {
-                    
-                    attack += card.attack;
-                    health += card.health;
+            battle( arr ) {
+                const attackingPlayer = arr[0] === 0 ? 0 : 1;
+                const defendingPlayer = arr[1] === 1 ? 1 : 0;
+
+                const [ attPlyrAtt, attPlyrDef, defPlyrAtt, defPlyrDef ] = action( phase.Three.getBattleStats, players[attackingPlayer].attack, players[defendingPlayer].defense );
+
+                console.log(`Player ${attackingPlayer + 1} will attack player ${defendingPlayer + 1}!`);
+                console.log(`Player ${attackingPlayer + 1} has ${attPlyrAtt} attack and ${attPlyrDef} defense`);
+                console.log(`Player ${defendingPlayer + 1} has ${defPlyrAtt} attack and ${defPlyrDef} defense`);
+
+                action( phase.Three.attack, [attackingPlayer, defendingPlayer], attPlyrAtt );
+                console.log(`----------------------------------------------`);
+                action( phase.Three.defend, [defendingPlayer, attackingPlayer], defPlyrAtt );
+                console.log(`----------------------------------------------`);
+                
+                action( phase.Two.resetIds );
+            },
+            attack( arr, attackPower ) {
+                let attack = attackPower;
+                const [ attacker, defender ] = arr;
+                let spliceNum = 0;
+
+                const defendingDeck = players[defender].defense;
+                console.log(`Starting attack...`);
+                for(let i = 0; i < defendingDeck.length; i++) {
+                    console.log(`Player ${attacker + 1} attacks Player ${defender + 1} for ${attack} attack power!`);
+                    if (attack >= defendingDeck[i].defense) {
+                        console.log(`Player ${attacker + 1} defeats the ${defendingDeck[i].name} card (${attack} attack vs ${defendingDeck[i].defense} defense)`);
+                        attack -= defendingDeck[i].defense;
+                        attack > 0 ? console.log(`Player ${attacker + 1} has ${attack} attack power left. Player ${attacker + 1} will attack again!`) : console.log(`Player ${attacker + 1} has ${attack} attack power left. Player ${attacker + 1}'s attack is over.`);
+                        spliceNum++;
+                    } else if (attack <= defendingDeck[i].defense) {
+                        console.log(`Player ${attacker + 1}'s attack on Player ${defender + 1} fails! (${attack} attack vs ${defendingDeck[i].defense} defense)`);
+                    }
                 }
-                return [
-                    players[gameObj[phase.currPlyr][0]].hand
+
+                defendingDeck.splice(0, spliceNum);
+
+                if(defendingDeck.length === 0 && attack > 0) {
+                    players[defender].health -= attack;
+                    console.log(`Player ${attacker + 1} hits Player ${defender + 1}'s health for ${attack} attack. Player ${defender + 1}'s health is now ${players[defender].health}.`);
+                    if(players[defender].health <= 0) {
+                        action( game.finishGame );
+                    }
+                }
+            },
+            defend( arr, attackPower ) {
+                let attack = attackPower;
+                const [ attacker, defender ] = arr;
+                let spliceNum = 0;
+
+                const defendingDeck = players[defender].attack;
+                console.log(`Defense starting...`);
+                for(let i = 0; i < defendingDeck.length; i++) {
+                    if (attack >= defendingDeck[i].defense) {
+                        console.log(`Player ${attacker + 1} defeats the ${defendingDeck[i].name} card (${attack} attack vs ${defendingDeck[i].defense} defense)`);
+                        attack -= defendingDeck[i].defense;
+                        attack > 0 ? console.log(`Player ${attacker + 1} has ${attack} attack power left. Player ${attacker + 1} can defend again.`) : console.log(`Player ${attacker + 1} has ${attack} attack power left. Player ${attacker + 1}'s attack is over.`);
+                        spliceNum++;
+                    } else if (attack <= defendingDeck[i].defense) {
+                        console.log(`Player ${attacker + 1}'s attack on Player ${defender + 1} fails! (${attack} attack vs ${defendingDeck[i].defense} defense)`);
+                    }
+                }
+            },
+            getBattleStats( arrOne, arrTwo ) {
+                return [ 
+                    action( phase.Three.getBattleStat, arrOne, 'attack' ), 
+                    action( phase.Three.getBattleStat, arrOne, 'defense' ), 
+                    action( phase.Three.getBattleStat, arrTwo, 'attack' ),
+                    action( phase.Three.getBattleStat, arrTwo, 'defense' ), 
                 ];
+            },
+            getBattleStat( arr, stat ) {
+                let attr = 0;
+                for(const card of arr) attr += card[stat];
+                return attr;
             },
         }
     }
