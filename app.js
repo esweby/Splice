@@ -70,6 +70,10 @@ const cardMngr = (function() {
                 ['Human', 1, 1]
             ]);
         },
+        getOriginalId( cardObj ) {
+            const originalCard = card.checkDuplicate( deck, cardObj ).id;
+            return originalCard;
+        },
         resetDeck() {
             card.resetDeck(deck);
         }
@@ -214,23 +218,80 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
             action( phase.One.start );
         },
         Two: {
+            step: 1,
             start() {
                 phase.activePhase = 2;
                 phase.currPlyr = 'active';
                 action( phase.Two.promptPlyr );
-
             },
             promptPlyr() {
+                console.log('------------------------------------------------------');
                 console.log(`Player ${gameObj[phase.currPlyr][0] + 1}, please manage your deck! The following commands are available:`);
                 console.log(``);
                 console.log('seeMyDecks() - view your hand, attack and defense deck');
                 console.log(`moveMyCard('fromDeck', 'toDeck', cardId) - move a card to another deck`);
                 console.log(`         from and to options - 'hand', 'attack', 'defense'`);
-                console.log(`spliceCard('fromDeck', cardId, 'fromDeck', cardId) - Splice two cards together and get a new one`);
+                console.log(`spliceCards('fromDeck', cardId, 'fromDeck', cardId) - Splice two cards together and get a new one`);
                 console.log(`         If the card has already been made you will get a copy of that instead`);
                 console.log(`nextPlayer() - this will end your turn`);
                 console.log(`         If you are the opposite player this will end the round and move through`);
                 console.log(`         the battle phase automatically.`);
+            },
+            viewDecks() {
+                
+                const decks = ['hand', 'attack', 'defense'];
+                for (let i = 0; i < 3; i++) {
+                    let attack = 0;
+                    let health = 0;
+                    i === 0 ? console.log(`In your ${decks[i]}: `) : console.log(`In your ${decks[i]} deck: `);
+                    const arr = players[gameObj[phase.currPlyr][0]][decks[i]];
+                    for (const [i, card] of arr.entries()) {
+                        console.log(`Card ${i}: ${card.name} | Attack: ${card.attack} | Health: ${card.health}`);
+                        attack += card.attack;
+                        health += card.health;
+                    }
+                    console.log(`This hand has ${attack} attack and ${health} health`);
+                    console.log('------------------------------------------------------');
+                }
+                console.log(`It is player ${gameObj[phase.currPlyr][0] + 1} go... please use help() to see more options`);
+            },
+            moveCard( from, to, id ) {
+                players[gameObj[phase.currPlyr][0]][to].push( players[gameObj[phase.currPlyr][0]][from][id] );
+                players[gameObj[phase.currPlyr][0]][from].splice(id, 1);
+                action( phase.Two.resetIds );
+                action( phase.Two.viewDecks );
+            },
+            resetIds() {
+                const decks = ['hand', 'attack', 'defense'];
+                for (let i = 0; i < 3; i++) {
+                    const arr = players[gameObj[phase.currPlyr][0]][decks[i]];
+                    for (let j = 0; j < arr.length; j++) arr[j].id = j;
+                }
+            },
+            splice(name, parentOne, parentTwo) {
+
+                if( players[gameObj[phase.currPlyr][0]].hand.length < parentTwo ) {
+                    return console.log(`Error: please choose a valid card from your hand less than ${players[gameObj][phase.currPlyr][0].hand.length}`)
+                }
+                const p1 = action( phase.Two.getParentName, parentOne );
+                const p2 = action( phase.Two.getParentId, parentTwo );
+
+                console.log(p1, p2);
+                // const parentOneId = cardCtrl.getOriginalId(players[gameObj[phase.currPlyr][0]][fromOne][idOne]);
+                // const parentTwoId = cardCtrl.getOriginalId(players[gameObj[phase.currPlyr][0]][fromTwo][idTwo]);
+                
+                // const newCard = cardCtrl.spliceCard(name, parentOneId, parentTwoId);
+
+                // players[gameObj[phase.currPlyr][0]][fromOne].splice(idOne, 1);
+                // players[gameObj[phase.currPlyr][0]][fromTwo].splice(idTwo, 1);
+                
+                // players[gameObj[phase.currPlyr][0]].hand.push(newCard);
+
+                // action( phase.Two.resetIds );
+                // action( phase.Two.viewDecks );
+            },
+            getParentId() {
+
             },
             nextPlayer() {
                 if (phase.currPlyr === 'opposite') {
@@ -239,7 +300,7 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
                 }
                 phase.currPlyr = 'opposite';
                 action( phase.Two.promptPlyr );
-            }
+            },
         },
         Three: {
             start() {
@@ -270,5 +331,19 @@ gameCtrl.init();
 const phaseCtrl = gameCtrl.getPhase();
 const pickCard = phaseCtrl.selectCard;
 
+const seeMyDecks = phaseCtrl.Two.viewDecks;
+const moveMyCard = phaseCtrl.Two.moveCard;
+const spliceCards = phaseCtrl.Two.splice;
+const help = phaseCtrl.Two.promptPlyr;
+const nextPlayer = phaseCtrl.Two.nextPlayer;
+
 pickCard(0);
 pickCard(2);
+
+seeMyDecks();
+moveMyCard('hand', 'attack', 0);
+moveMyCard('hand', 'defense', 0);
+
+nextPlayer();
+seeMyDecks();
+spliceCards('Carrot', 0, 1);
