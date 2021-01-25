@@ -137,7 +137,7 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
 
     const arrFiveCards = [];
 
-    function action( fnc, nxtFnc, data ) { fnc( nxtFnc, data ); };
+    function action( fnc, nxtFnc, data ) { return fnc( nxtFnc, data ); };
 
     const game = {
         new() {
@@ -218,7 +218,6 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
             action( phase.One.start );
         },
         Two: {
-            step: 1,
             start() {
                 phase.activePhase = 2;
                 phase.currPlyr = 'active';
@@ -231,7 +230,8 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
                 console.log('seeMyDecks() - view your hand, attack and defense deck');
                 console.log(`moveMyCard('fromDeck', 'toDeck', cardId) - move a card to another deck`);
                 console.log(`         from and to options - 'hand', 'attack', 'defense'`);
-                console.log(`spliceCards('fromDeck', cardId, 'fromDeck', cardId) - Splice two cards together and get a new one`);
+                console.log(`spliceCards('name', idOne, idTwo) - Splice two cards together and get a new one back`);
+                console.log(`          only works on cards in your hand`);
                 console.log(`         If the card has already been made you will get a copy of that instead`);
                 console.log(`nextPlayer() - this will end your turn`);
                 console.log(`         If you are the opposite player this will end the round and move through`);
@@ -273,29 +273,36 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
                 if( players[gameObj[phase.currPlyr][0]].hand.length < parentTwo ) {
                     return console.log(`Error: please choose a valid card from your hand less than ${players[gameObj][phase.currPlyr][0].hand.length}`)
                 }
-                const p1 = action( phase.Two.getParentName, parentOne );
-                const p2 = action( phase.Two.getParentId, parentTwo );
+                const p1name = action( phase.Two.getParentName, parentOne );
+                const p1id = action( phase.Two.getParentOriginalId, parentOne );
+                const p2name = action( phase.Two.getParentName, parentTwo );
+                const p2id = action( phase.Two.getParentOriginalId, parentTwo );
 
-                console.log(p1, p2);
-                // const parentOneId = cardCtrl.getOriginalId(players[gameObj[phase.currPlyr][0]][fromOne][idOne]);
-                // const parentTwoId = cardCtrl.getOriginalId(players[gameObj[phase.currPlyr][0]][fromTwo][idTwo]);
-                
-                // const newCard = cardCtrl.spliceCard(name, parentOneId, parentTwoId);
+                action( phase.Two.removeCardFromHand, p1name );
+                action( phase.Two.resetIds );
+                action( phase.Two.removeCardFromHand, p2name );
+                action( phase.Two.resetIds );
 
-                // players[gameObj[phase.currPlyr][0]][fromOne].splice(idOne, 1);
-                // players[gameObj[phase.currPlyr][0]][fromTwo].splice(idTwo, 1);
-                
-                // players[gameObj[phase.currPlyr][0]].hand.push(newCard);
+                const newCard = cardCtrl.spliceCard(name, p1id, p2id);
+                players[gameObj[phase.currPlyr][0]].hand.push(newCard);
 
-                // action( phase.Two.resetIds );
-                // action( phase.Two.viewDecks );
+                action( phase.Two.resetIds );
+                action( phase.Two.viewDecks );
             },
-            getParentId() {
-
+            getParentName( parent ) {
+                return players[gameObj[phase.currPlyr][0]].hand[parent].name;
+            },
+            getParentOriginalId( parent ) {
+                return cardCtrl.getOriginalId(players[gameObj[phase.currPlyr][0]].hand[parent]);
+            },
+            removeCardFromHand( name ) {
+                for (const currCard of players[gameObj[phase.currPlyr][0]].hand) if (name === currCard.name) players[gameObj[phase.currPlyr][0]].hand.splice(players[gameObj[phase.currPlyr][0]].hand[currCard.id] , 1);
             },
             nextPlayer() {
                 if (phase.currPlyr === 'opposite') {
                     action( phase.Three.start );
+                    phase.currPlyr = 'active';
+                    phase.activePhase = 1;
                     return
                 }
                 phase.currPlyr = 'opposite';
@@ -304,7 +311,18 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
         },
         Three: {
             start() {
-
+                console.log('Starting Battle Phase!!!');
+                const battleStats = action( getBattleStats );
+            },
+            getBattleStats() {
+                for (const [i, card] of arr.entries()) {
+                    
+                    attack += card.attack;
+                    health += card.health;
+                }
+                return [
+                    players[gameObj[phase.currPlyr][0]].hand
+                ];
             },
         }
     }
@@ -347,3 +365,7 @@ moveMyCard('hand', 'defense', 0);
 nextPlayer();
 seeMyDecks();
 spliceCards('Carrot', 0, 1);
+moveMyCard('hand', 'attack', 0);
+moveMyCard('hand', 'defense', 0);
+
+nextPlayer();
