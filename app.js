@@ -332,44 +332,16 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
             },
             // Player function to splice two cards togerher
             // Written to just get it working, this needs a lot of reworking
-
-            // Found a bug 
-            /* 
-            - You have chosen to view your deck
-                app.js:306 In your hand: 
-                app.js:309 Card 0: Wolf | Attack: 3 | Defense: 3
-                app.js:309 Card 1: Wolf | Attack: 3 | Defense: 3
-                app.js:309 Card 2: Elephant | Attack: 2 | Defense: 6
-                app.js:313 This hand has 8 attack and 12 defense
-                app.js:314 ------------------------------------------------------
-                app.js:306 In your attack deck: 
-                app.js:313 This hand has 0 attack and 0 defense
-                app.js:314 ------------------------------------------------------
-                app.js:306 In your defense deck: 
-                app.js:313 This hand has 0 attack and 0 defense
-                app.js:314 ------------------------------------------------------
-                app.js:316 It is player 2 go... please use help() to see more options
-                undefined
-                spliceCards('Wolfephant', 1, 2)
-                app.js:336  - You have chosen to splice a new card!
-                app.js:299  
-                app.js:300 - You have chosen to view your deck
-                app.js:306 In your hand: 
-                app.js:309 Card 0: Elephant | Attack: 2 | Defense: 6
-                app.js:309 Card 1: Wolfephant | Attack: 5 | Defense: 11
-                app.js:313 This hand has 7 attack and 17 defense
-            */
             splice(name, parentOne, parentTwo) {
-                console.log(` - You have chosen to splice a new card!`); // player info
-
                 if( players[gameObj[phase.currPlyr][0]].hand.length < parentTwo ) {
-                    return console.log(`Error: please choose a valid card from your hand less than ${players[gameObj][phase.currPlyr][0].hand.length}`); // player info - error
+                    return console.log(`Error: Can not Splice! Please choose a valid card from your hand less than ${players[gameObj][phase.currPlyr][0].hand.length}`); // player info - error
                 }
                 const p1name = action( phase.Two.getParentName, parentOne );     //   Code block gets information to pass into splicing
                 const p1id = action( phase.Two.getParentOriginalId, parentOne ); //   Would like to see if there was a neat method for doing this in one line
                 const p2name = action( phase.Two.getParentName, parentTwo );     //   Thinking destructor with a high level first function
                 const p2id = action( phase.Two.getParentOriginalId, parentTwo ); //
 
+                console.log(` - You have chosen to splice a new card from ${p1name} amd ${p2name}!`); // player info
                 action( phase.Two.removeCardFromHand, p1name );  //   Code block removes the cards used for splicing from the player hand before moving forward
                 action( phase.Two.resetIds );                    //   Same with this code block - would like to rewrite to be neater
                 action( phase.Two.removeCardFromHand, p2name );  //
@@ -393,7 +365,11 @@ const gameCtrl = (function(gameState, plyrMngr, cardMngr) {
             removeCardFromHand( name ) {
                 // this line is not at all human readable, I get it and will turn it into nice code.
                 // also was difficult to write because of referencing objects so really need a nice way to do that
-                for (const currCard of players[gameObj[phase.currPlyr][0]].hand) if (name === currCard.name) players[gameObj[phase.currPlyr][0]].hand.splice(players[gameObj[phase.currPlyr][0]].hand[currCard.id] , 1);
+                for (const currCard of players[gameObj[phase.currPlyr][0]].hand) {
+                    if (name === currCard.name) {
+                        players[gameObj[phase.currPlyr][0]].hand.splice( currCard.id, 1);
+                    }
+                }
             },
             //  Switches the active player so that player two (or one on even rounds)
             //  can do their card management.
@@ -539,15 +515,16 @@ const help = phaseCtrl.Two.promptPlyr;
 const nextPlayer = phaseCtrl.Two.nextPlayer;
 
 // pickCard(0);
-// pickCard(2);
+// pickCard(0);
 
 // seeMyDecks();
-// moveMyCard('hand', 'attack', 0);
-// moveMyCard('hand', 'defense', 0);
+// moveCard('hand', 'attack', 0);
+// moveCard('hand', 'defense', 0);
 
 // nextPlayer();
-// seeMyDecks();
-// spliceCards('Carrot', 0, 1);
+// console.log(`------- TEST ----------`)
+// seeDecks();
+// spliceCards('Carrot', 1, 2);
 // moveMyCard('hand', 'attack', 0);
 // moveMyCard('hand', 'defense', 0);
 
