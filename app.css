@@ -1,138 +1,143 @@
-html,
-body {
-  margin: 0;
-  padding: 0;
-  font-size: 20px;
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+.gameNav {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px;
+}
+.gameNav button {
+    border: 0;
+    padding: 10px 15px;
+    font-size: 20px;
+    transition: all ease-in-out 0.2s;
+}
+.gameNav button:hover {
+    box-shadow: 0 0 2px black;
+}
+.gameContainer {
+    display: flex;
+    width: 100%;
+    flex-flow: row wrap;
+}
+.theGame {
+    width: 64%;
+    min-width: 300px;
+}
+.actionList {
+    box-shadow: 0 0 2px black;
+    width: 35%;
+    min-width: 300px;
+    padding: 5px 10px;
+    border: 1px;
+    margin: 0 5px;
+    height: 400px;
+    overflow-y: scroll;
 }
 
-/* Styles */
-
-/*                 Display Settings                 */
-
-.box-size-border {
-  box-sizing: border-box;
+.gameInfo {
+    display: flex; 
+    justify-content: center; 
+    font-size: 20px;
 }
 
-/* Block */
-.d-none {
-  display: none;
-}
-.d-block {
-  display: block;
-}
-.d-inline-block {
-  display: inline-block;
+.deck {
+    margin: 0 auto;
+    width: max-content;
+    display: flex;
+    flex-flow: row nowrap;
+    justify-content: space-around;
 }
 
-/* Grid System */
-.d-grid {
-  display: grid;
+.card {
+    width: 150px;
+    border: 2px solid grey;
+    margin: 0 10px;
+    border-radius: 12px;
+    text-align: center;
+}
+.card h3 {
+    margin: 15px;
+}
+.card .attributes {
+    width: 100%;
+    display: flex;
+}
+.card .attack,
+.card .defence {
+    width: 50%;
+    display: inline-block;
+}
+.card .attack {
+    text-align: right;
+}
+.card .attack p:first-of-type {
+    padding: 5px 5px 5px 0;
+    margin: 0;
+}
+.card .attack p:last-of-type {
+   padding: 5px 20px 5px 0;
+    margin: 0;
+}
+.card .defence p:first-of-type {
+    padding: 5px 0 5px 5px;
+    margin: 0;
+}
+.card .defence p:last-of-type {
+    padding: 5px 0 5px 20px;
+    margin: 0;
+}
+.card .defence {
+    text-align: left;
+}
+.card .available-actions {
+    display:flex;
+    flex-flow: column;
+    justify-content: space-around;
+}
+.card button {
+    margin: 15px 0;
 }
 
-/* Columns */
-.gr-col-1 {
-  grid-template-columns: 1fr;
+.deck-manager {
+    margin: 10px;
 }
-.gr-col-2 {
-  grid-template-columns: repeat(2, 1fr);
+.hand-nav {
+    margin: 5px 0;
 }
-.gr-col-3 {
-  grid-template-columns: repeat(3, 1fr);
+.player-deck {
+    margin: 25px 0;
+    text-align: center;
 }
-.gr-col-4 {
-  grid-template-columns: repeat(4, 1fr);
+.available-actions {
+    margin: 5px 0 10px;;
 }
-.gr-col-5 {
-  grid-template-columns: repeat(5, 1fr);
+.available-actions button {
+    display: block;
+    margin: 3px 5px;
 }
-.gr-col-6 {
-  grid-template-columns: repeat(6, 1fr);
+.player-deck .card h3:first-of-type {
+    margin: 15px 0 0;
 }
-
-@media screen and (max-width: 600px) {
-  .gr-col-1 {
-    grid-template-columns: 1fr;
-  }
-  .gr-col-2 {
-    grid-template-columns: 1fr;
-  }
-  .gr-col-3 {
-    grid-template-columns: 1fr;
-  }
-  .gr-col-4 {
-    grid-template-columns: 1fr;
-  }
-  .gr-col-5 {
-    grid-template-columns: 1fr;
-  }
-  .gr-col-6 {
-    grid-template-columns: 1fr;
-  }
+.player-deck .card h3:last-of-type {
+    margin: 0 0 15px;
 }
 
-/* Flexbox */
-.d-flex {
-  display: flex;
+.actions {
+    width: max-content;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-around;
 }
-.fl-row-nowrap {
-  flex-flow: row nowrap;
+.actions input:first-of-type {
+    width: 100px;
 }
-.fl-row-wrap {
-  flex-flow: row wrap;
+.actions input {
+    margin: 10px 5px;
+    width: 50px;
 }
-.fl-col-nowrap {
-  flex-flow: column nowrap;
-}
-.fl-col-wrap {
-  flex-flow: column wrap;
-}
-/* Flex - Justify */
-.fl-jf-start {
-  justify-content: flex-start;
-}
-.fl-jf-center {
-  justify-content: center;
-}
-.fl-jf-end {
-  justify-content: flex-end;
-}
-/* Flex - Align */
-.fl-al-start {
-  align-items: flex-start;
-}
-.fl-al-center {
-  align-items: center;
-}
-.fl-al-end {
-  align-items: flex-end;
-}
-
-/*
-                    Padding And Margin
-*/
-
-/* Margin */
-
-/* Padding */
-.pa-25 {
-  padding: 25px;
-}
-.pb-25 {
-  padding-bottom: 25px;
-}
-.pl-25 {
-  padding-left: 25px;
-}
-.pr-25 {
-  padding-right: 25px;
-}
-.pt-25 {
-  padding-top: 25px;
-}
-
-/*
-                    Text Styles
-*/
-.text-center {
-  text-align: center;
+.actions button {
+    margin: 10px 10px;
 }
