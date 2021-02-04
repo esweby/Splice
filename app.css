@@ -47,10 +47,12 @@
     margin: 0 auto;
     width: max-content;
     display: flex;
-    flex-flow: row nowrap;
+    flex-flow: row wrap;
     justify-content: space-around;
 }
-
+.deck-picker {
+    flex-flow: row wrap;
+}
 .card {
     width: 150px;
     border: 2px solid grey;
@@ -66,7 +68,7 @@
     display: flex;
 }
 .card .attack,
-.card .defence {
+.card .defense {
     width: 50%;
     display: inline-block;
 }
@@ -81,15 +83,15 @@
    padding: 5px 20px 5px 0;
     margin: 0;
 }
-.card .defence p:first-of-type {
+.card .defense p:first-of-type {
     padding: 5px 0 5px 5px;
     margin: 0;
 }
-.card .defence p:last-of-type {
+.card .defense p:last-of-type {
     padding: 5px 0 5px 20px;
     margin: 0;
 }
-.card .defence {
+.card .defense {
     text-align: left;
 }
 .card .available-actions {
@@ -103,6 +105,12 @@
 
 .deck-manager {
     margin: 10px;
+}
+.deck-manager .deck {
+    height: 195px;
+}
+.deck-manager h2:first-of-type {
+    color: red;
 }
 .hand-nav {
     margin: 5px 0;
@@ -129,15 +137,24 @@
     width: max-content;
     margin: 0 auto;
     display: flex;
+    flex-flow: column;
     justify-content: space-around;
 }
-.actions input:first-of-type {
+.actions button { 
+    margin: 5px;
+}
+.actions button:last-of-type {
+    margin-bottom: 15px;
+}
+.deckActions input:first-of-type {
     width: 100px;
 }
-.actions input {
+.deckActions input {
     margin: 10px 5px;
     width: 50px;
 }
-.actions button {
+.deckActions button {
     margin: 10px 10px;
 }
+
+.hide { display: none; }

@@ -2,34 +2,88 @@
 //      GAME OBJECT DATA
 //
 const gameObj = (function() {
+    // The player objects holds the relevant data from 
     const players = [
-        {},
-        {},
+        {
+            id: 'Player One',
+            health: 20,
+            hands: [[], [], []],
+            handStats: [{
+                attack: 0,
+                defense: 0,
+            },
+            {
+                attack: 0,
+                defense: 0,
+            },
+            {
+                attack: 0,
+                defense: 0,
+            }],
+        },
+        {
+            id: 'Player Two',
+            health: 20,
+            hands: [[], [], []],
+            handStats: [{
+                attack: 0,
+                defense: 0,
+            },
+            {
+                attack: 0,
+                defense: 0,
+            },
+            {
+                attack: 0,
+                defense: 0,
+            }],
+        },
     ];
+    const resetPlayers = function( player ) {
+        players[player].health = 20;
+        players[player].hands = [[],[],[]];
+        players[player].handStats = [{attack: 0, defense: 0}, {attack: 0, defense: 0}, {attack: 0, defense: 0}]          
+    }
+    const getPlayerDeckStats = function ( player ) {
+        
+    }
     const game = {
         gameActive: true,
         round: 0,
         activePlayer: 0,
         oppositePlayer: 1,
         phase: 0,
-        note: 0,
-        notes: [1, 2, 3, 4],
+        phaseActive: 0,
         phases: ['pick a card', 'manage deck', 'battle Round!'],
+        note: 0,
+        notes: [],
         reset() {
             game.gameActive = true;
             game.round = 0;
             game.activePlayer = 0;
             game.oppositePlyr = 1;
+            game.phase = 0;
+            game.phaseActive = 0;
             game.note = 0;
             game.notes.splice(0, game.notes.length);
         },
+        firstRound() {
+            action( game.nextRoundActions );
+        },
         nextRound() {
-            this.phase = 0;
-            this.round++;
-
+            action( game.swapPlayers );
+            action( game.nextRoundActions );
+        },
+        nextRoundActions() {
+            game.phase = 0;
+            game.phaseActive = game.activePlayer;
+            game.round++;
+        },
+        nextPhase() {
+            game.phase >= 2 ? game.phase = 0 : game.phase++;
         },
         swapPlayers() {
-            if (activePlayer === 0) {
+            if (game.activePlayer === 0) {
                 game.activePlayer = 1;
                 game.oppositePlayer = 0;
             } else {
@@ -41,11 +95,12 @@ const gameObj = (function() {
             game.note++;
         }
     };
-    const ctrl = {
-        nextRound() {
-            game.round++;
-        }
+
+    // This is a higher order function so that I can make it clear what I am doing and that we are taking an action
+    const action = function(...args) {
+        return args[0](...args.slice(1));
     }
+
     return {
         getPlayers() {
             return players;
@@ -113,12 +168,12 @@ const cardCtrl = (function() {
         init() {
             mngr.addMultiple(
                 [['Lion', 4, 3], ['Tiger', 3, 4], ['Cheetah', 2, 2], ['Jaguar', 3, 3],
-                    ['Wolf', 3, 3], ['Hyena', 2, 3],
-                    ['Elephant', 6, 2], ['Rhino', 5, 4], 
-                    ['Grizzly Bear', 4, 4], ['Black Bear', 4, 3],
-                    ['Crocodile', 2, 5], ['Aligator', 3, 5],
-                    ['Human', 1, 1]
-                ]);
+                ['Wolf', 3, 3], ['Hyena', 2, 3],
+                ['Elephant', 6, 2], ['Rhino', 5, 4], 
+                ['Grizzly Bear', 4, 4], ['Black Bear', 4, 3],
+                ['Crocodile', 2, 5], ['Aligator', 3, 5],
+                ['Human', 1, 1]]
+            );
         }
     }
 })();
@@ -131,16 +186,31 @@ const uiCtrl = (function() {
         return args[0](...args.slice(1));
     }
 
-    const game = gameObj.getGame(); // will be used in some functions to update some fields
+    const game = gameObj.getGame(); // will be used in some functions to update some fields - UPDATE - used in the card fill and game data fill (round etc.)
 
     const select = {
         label: {
             round: document.querySelector('.labelRound'),
             player: document.querySelector('.labelPlayer'),
             phase: document.querySelector('.labelPhase'),
+            hand: {
+                attack: document.querySelector('.handDeck .attackStat'),
+                defense: document.querySelector('.handDeck .defenseStat'),
+            },
+            attack: {
+                attack: document.querySelector('.attackDeck .attackStat'),
+                defense: document.querySelector('.attackDeck .defenseStat'),
+            },
+            defense: {
+                attack: document.querySelector('.defenseDeck .attackStat'),
+                defense: document.querySelector('.defenseDeck .defenseStat'),
+            },
         },
         ele: {
             picker: document.querySelector('.deck-picker'),
+            hand: document.querySelector('.handDeck .deck'),
+            attack: document.querySelector('.attackDeck .deck'),
+            defense: document.querySelector('.defenseDeck .deck'),
             manager: document.querySelector('.deck-manager'),
             actionList: document.querySelector('.actionList'),
         },
@@ -151,30 +221,68 @@ const uiCtrl = (function() {
     }
 
     const htmlEles = {
-        cards: {
+        decks: {
 
+        },
+        cards: {
+            basic: card => `<h3>${card.name}</h3> <div class="attributes"> <div class="attack"><p>Attack</p><p>${card.attack}</p></div> <div class="defense"><p>Defense</p><p>${card.defense}</p></div> </div>`, 
+            withID: card => `<h3>${card.id}: ${card.name}</h3> <div class="attributes"> <div class="attack"><p>Attack</p><p>${card.attack}</p></div> <div class="defense"><p>Defense</p><p>${card.defense}</p></div> </div>`,
+            // This is the card for the player pick from
+            picker: card => `<div class="actions"><button onclick="pickCard(${card.id})">Pick Card</button></div>`,
+            // Move from Hand to Attack | Defense
+            hand: card => `<div class="actions"><button onclick="moveCard( 0, 1, ${card.id})">Move To Attack</button><button onclick="moveCard( 0, 2, ${card.id})">Move To Defense</button></div>`,
+            // Move from Attack to Hand | Defense
+            attack: card => `<div class="actions"><button onclick="moveCard( 1, 2, ${card.id})">Move To Defense</button><button onclick="moveCard( 1, 0, ${card.id})">Move To Hand</button></div>`,
+            // Move from Defense to Hand | Attack
+            defense: card => `<div class="actions"><button onclick="moveCard( 2, 1, ${card.id})">Move To Attack</button><button onclick="moveCard( 2, 0, ${card.id})">Move To Hand</button></div>`,
         },
     }
 
     const ctrl = {
         updateLabels(gameData) {
             select.label.round.textContent = gameData.round;
-            select.label.player.textContent = gameData.activePlayer + 1;
+            select.label.player.textContent = gameData.phaseActive + 1;
             select.label.phase.textContent = 
                 gameData.phases[gameData.phase].slice(0, 1).toUpperCase() + // Capitalize the first 
                 gameData.phases[gameData.phase].slice(1).toLowerCase();     // letter of the first word
         },
-        addNote(str) {
+        addNote( str ) {
             const newNote = document.createElement('div'); // create the element
             newNote.setAttribute('class', 'note'); // set the class - could do this with class list but I like setAttre
-            game.nextNote(); // update the note counter
+            action( game.nextNote ); // update the note counter
             game.notes.push(`${game.note}: ${str}`); // Push the note into the array for recording purposes
             newNote.textContent = `${game.note}: ${str}`; // add the note to the element
             select.ele.actionList.insertAdjacentElement('afterbegin', newNote); // add the element to the top of the actionlist div
         },
-        clearNotes() {
+        addCardTo( card, type, actions ) { // This function can be used to add cards to a html element. 
+            const cardEle = document.createElement('div');
+            const cardTyp = action( htmlEles.cards[type], card ); // card type will be here
+            const cardAct = action( htmlEles.cards[actions], card ); // card actions will be here
+            cardEle.classList.toggle('card');
+
+            select.ele[actions].insertAdjacentElement('beforeend', cardEle);
+            cardEle.insertAdjacentHTML('afterbegin', cardTyp);
+            cardEle.insertAdjacentHTML('beforeend', cardAct);
+        },
+        clearEle: type => select.ele[type].innerHTML = '',
+        clearNotes() { // Reset function
             select.ele.actionList.innerHTML = '';
         },
+        toggleHideEle: element => select.ele[element].classList.toggle('hide'),
+        fillDecks( arr ) {
+            action( ctrl.clearEle, 'hand');
+            action( ctrl.fillLoop, arr[0], 'withID', 'hand' );
+            action( ctrl.clearEle, 'attack');
+            action( ctrl.fillLoop, arr[1], 'withID', 'attack' );
+            action( ctrl.clearEle, 'defense');
+            action( ctrl.fillLoop, arr[2], 'withID', 'defense' );
+        },
+        fillLoop( arr, type, actions ) {
+            for(let i = 0; i < arr.length; i++) action( ctrl.addCardTo, arr[i], type, actions );
+        },
+        updateStats( type, stat ) {
+
+        }
     }
 
     return {
@@ -212,7 +320,6 @@ const gameCtrl = (function(){
     const players = gameObj.getPlayers();
     const card = cardCtrl.getMngr();
     const deck = cardCtrl.getDeck();
-    const uiSelect = uiCtrl.getSelect();
     const ui = uiCtrl.getUiCtrl();
 
     // Code dedicated to starting the game, including a function that has been bound to game obj
@@ -221,21 +328,145 @@ const gameCtrl = (function(){
         // reset game to default
         this.reset();
         // start a new round
-        this.nextRound();
+        this.firstRound();
         // update the UI and add a note
         action( ui.updateLabels, game );
         action( ui.addNote, `Starting New Game`);
         action( ui.addNote, `Starting round ${game.round} with player ${game.activePlayer + 1} doing ${game.phases[game.phase]}`);
+        action( phaseMngr[0].start ); // Start the game with the first round
     }
+    const phaseMngr = [
+        {   // Phase 0
+            start() {
+                action( fiveCardMngr.getFiveCards ); // Found in the fiveCardMngr which is a collection of methods that controls the majority of actions 
+            },
+            end() {
+                action( ui.addNote, `Ending ${game.phases[game.phase]} phase`);
+                action( phaseMngr[1].start )
+            }
+        },
+        {   // Phase 1
+            start() {
+                action( game.nextPhase );
+                action( ui.updateLabels, game );
+                action( ui.addNote, `Starting ${game.phases[game.phase]} phase`);
+                action( manageDecks.init );
+            },
+            nextPlayer() {
+
+            },
+            end() {
+
+            },
+        },
+        {   // Phase 2
+            start() {
+
+            },
+            end() {
+
+            },
+        }
+    ]
+    // At the start of a round players (alternating each round) will be able 
+    // to pick cards to add them their hand from five randomly picked cards from the master deck 
+    // this array will contain the five randomly picked cards.
     const fiveCards = new Array;
     const fiveCardMngr = {
         getFiveCards() {
-            for(let i = 0; i < 5; i++) {
-                const newCard = deck[Math.round(Math.random() * (deck.length - 1))];
-                action( ui.addNote, `Adding card ${newCard.name} to pick deck!`);
+            action( ui.addNote, `Drawing five random cards from the deck`); // note
+            for(let i = 0; i < 5; i++) { // For loop to pick five cards
+                action( fiveCardMngr.createCard );
+            }
+        },
+        createCard() {
+            const newCard = action( fiveCardMngr.createCardObj );
+            action( fiveCardMngr.add, newCard); // add it to the arr
+            action( ui.addNote, `Adding the ${newCard.name} card to pick deck`); // note
+            action( ui.addCardTo, newCard, 'basic', 'picker' );  // UI Action to add it to the picker deck
+        },
+        createCardObj() {
+            const randomCard = action( fiveCardMngr.getRandomCard ); // this is the card to add
+            action( fiveCardMngr.createNewCardObj, randomCard);
+            action( fiveCardMngr.getNewId, randomCard );
+            return randomCard;
+        },
+        getRandomCard: () => deck[Math.round(Math.random() * (deck.length - 1))],
+        createNewCardObj( obj ) {
+            const newCardObj = {
+                name: obj.name,
+                attack: obj.attack,
+                defense: obj.defense,
+            }
+            if (obj.parents) newCard.parents = newCardObj.parents;
+            return newCardObj;
+        },
+        add: card => fiveCards.push(card), // push the card into the fiveCards array 
+        getNewId: obj => obj.id = fiveCards.length, // gets a new id for the card obj that's been freshly created
+        pickCard( id ) { // This is part of the player actions
+            action( fiveCardMngr.pushToHand,  players[game.phaseActive].hands[0], fiveCards[id] );
+            action( ui.addNote, `Player ${game.phaseActive + 1} picked the ${fiveCards[id].name} card`);
+            action( fiveCardMngr.remove, id );
+            action( fiveCardMngr.resetIDandAdd );
+            action( fiveCardMngr.updateGo )
+        },
+        pushToHand: ( player, card ) => player.push(card),
+        resetIDandAdd: () => {
+            // This is used inbetween picks to reset and update the UI - because I have chosen to go down holding the action in an onclick inside the html with the id of the position the card is in the array, when a card is picked early it invalidates the code so I have this code to wipe the element and reload it with new/correct functions
+            action( ui.clearEle, 'picker' );
+            // action( ui.fillLoop, fiveCards, 'basic', 'picker' ); Potential to swap the below loop out for this one but need to consider through the resetting of ID
+            for(let i = 0; i < fiveCards.length; i++) {
+                fiveCards[i].id = i;
+                action( ui.addCardTo, fiveCards[i], 'basic', 'picker' );
+            }
+        },
+        remove: id => fiveCards.splice(id, 1), // used to clear a card 
+        clearAll: () => fiveCards.splice(0, fiveCards.length), // used to completely wipe the ddeck
+        updateGo() { // This function decides who the pick order is - it works in a similar way to Catan, first player gets first pick, second player gets the next two picks and the first player gets the final pick - when there is only one card left in the round it will be cleared from the deck and the next phase is triggered
+            if(fiveCards.length === 4 || fiveCards.length === 2) {
+                game.phaseActive === 0 ? game.phaseActive = 1 : game.phaseActive = 0;
+                action( ui.updateLabels, game );
+            } else if(fiveCards.length === 1) {
+                action( ui.clearEle, 'picker' );
+                action( fiveCardMngr.clearAll );
+                action( phaseMngr[0].end );
             }
         }
     }
+
+    // This is the second phase of the game, the deck management which includes moving cards and splicing them, unsure quite how I will structure this yet but in the previous iteration it felt like it grew out of control quickly so I will try to farm out as much as possible to other modules and focus this section (more than the last) on the high level stuff
+    const manageDecks = {
+        init() {
+            action( manageDecks.resetIndex, players[game.phaseActive].hands[0] );
+            action( manageDecks.toggleEle );
+            action( manageDecks.fillDecks );
+        },
+        toggleEle: () => action( ui.toggleHideEle, 'manager' ),
+        fillDecks: () => action( ui.fillDecks, players[game.phaseActive].hands ),
+        moveCard( from, to, id ) {
+            action( 
+                manageDecks.arrActions, 
+                players[game.phaseActive].hands[from], 
+                players[game.phaseActive].hands[to], 
+                id );
+            action( ui.fillDecks, players[game.phaseActive].hands );
+        },
+        arrActions( from, to, id ) {
+            action( manageDecks.addTo, to, from[id] );
+            action( manageDecks.removeFrom, from, from[id] );
+            console.log(players[0].hands);
+            action( manageDecks.resetIndex, from );
+            action( manageDecks.resetIndex, to );
+
+        },
+        addTo: ( to, card ) => to.push(card),
+        removeFrom: ( from, card ) => from.splice(card.id, 1),
+        resetIndex( arr ) {
+            arr.forEach(function(ele, i) {
+                ele.id = i;
+            });
+        }
+    };
 
     const newGame = startGame.bind(game); // Binding the game object to start game function so that I can use the this keyword
 
@@ -243,12 +474,24 @@ const gameCtrl = (function(){
         init() {
             cardCtrl.init();
             action( newGame );
-        }
+        },
+        getFCM: () => fiveCardMngr,
+        getMD: () => manageDecks,
     }
 })();
 
 gameCtrl.init();
 
+// Functions created to pass into HTML elements as onclick handlers without having to set up and delete listeners - I could do event bubbling but I feel at the moment that this is far 'cheaper' - though I may look into it in the future as it would solve the id issue and constantly having to reset the decks. 
+const fcm = gameCtrl.getFCM();
+const pickCard = function( id ) {
+    fcm.pickCard( id );
+}
+
+const md = gameCtrl.getMD();
+const moveCard = function( from, to, id ) {
+    md.moveCard( from, to, id );
+}
 
 
 // const cardMngr = (function() {
