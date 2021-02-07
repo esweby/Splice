@@ -112,6 +112,13 @@
 .deck-manager h2:first-of-type {
     color: red;
 }
+.deck-manager #next-btn {
+    padding: 10px;
+    font-size: 20px;
+    border: 0;
+    margin: 5px 0;
+}
+
 .hand-nav {
     margin: 5px 0;
 }

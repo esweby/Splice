@@ -17,13 +17,13 @@
     <div class="gameContainer">
       <div class="theGame">
         <div class="gameInfo">
-          <p>Round: <span class="labelRound">0</span> | Player: <span class="labelPlayer">0</span> | Phase: <span class="labelPhase">Pick a card</span></p>
+          <p>Round: <span class="labelRound">0</span> | Player: <span class="labelPlayer">0</span> | Health: <span class="labelHealth"></span> | Phase: <span class="labelPhase">Pick a card</span></p>
         </div>
         <div class="deck deck-picker">
           
         </div>
         <div class="deck-manager hide">
-          <button>Next Player</button>
+          <button id="next-btn">Next Player</button>
           <div class="handDeck">
             <div class="stats">
               <h2>Your Hand</h2>
@@ -33,7 +33,8 @@
 
             </div>
             <div class="deckActions">
-              <input type="text" placeholder="name"> <input type="number" placeholder="0"> <input type="number" placeholder="1"> <button>Splice</button>
+              <!-- SPLICE SECTION -->
+              <input type="text" placeholder="name" class="spliceName"> <input type="number" placeholder="0" class="spliceNo1"> <input type="number" placeholder="1" class="spliceNo2"> <button onclick="splice()">Splice</button>
             </div>
           </div>
           <div class="attackDeck">

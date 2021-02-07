@@ -1,3 +1,8 @@
+// Ideas - line 302 (addNote) 
+// line 553 - no specific function but updating the names to deny duplicates
+// line 597 - Updates in splice master function 
+
+
 //
 //      GAME OBJECT DATA
 //
@@ -45,7 +50,21 @@ const gameObj = (function() {
         players[player].handStats = [{attack: 0, defense: 0}, {attack: 0, defense: 0}, {attack: 0, defense: 0}]          
     }
     const getPlayerDeckStats = function ( player ) {
-        
+        // A loop to go through all three hands in the array
+        // it will set up the attack and the defense 
+        for(let i = 0; i < 3; i++) {
+            let attack = 0;
+            let defense = 0;
+            // get the deck to run the forEach loop on
+            const deck = players[player].hands[i];
+            deck.forEach(curr => {
+                attack += curr.attack; // update attack
+                defense += curr.defense // update attack
+            });
+            // set the hand equal to the update stats
+            players[player].handStats[i].attack = attack;
+            players[player].handStats[i].defense = defense;
+        }
     }
     const game = {
         gameActive: true,
@@ -67,6 +86,7 @@ const gameObj = (function() {
             game.note = 0;
             game.notes.splice(0, game.notes.length);
         },
+        // Round controls
         firstRound() {
             action( game.nextRoundActions );
         },
@@ -79,20 +99,27 @@ const gameObj = (function() {
             game.phaseActive = game.activePlayer;
             game.round++;
         },
+        // Phase Controls
         nextPhase() {
             game.phase >= 2 ? game.phase = 0 : game.phase++;
         },
         swapPlayers() {
             if (game.activePlayer === 0) {
                 game.activePlayer = 1;
+                game.phaseActive = 1;
                 game.oppositePlayer = 0;
             } else {
                 game.activePlayer = 0;
+                game.phaseActive = 0;
                 game.oppositePlayer = 1;
             }
         },
+        // note counter
         nextNote() {
             game.note++;
+        },
+        endGame() {
+            game.gameActive = false;
         }
     };
 
@@ -107,7 +134,9 @@ const gameObj = (function() {
         },
         getGame() {
             return game;
-        }
+        }, 
+        setPlayerStats: ( player ) => getPlayerDeckStats( player ),
+
     };
 })();
 
@@ -124,21 +153,48 @@ const cardCtrl = (function() {
         checkForDuplicateName(cardName) {
             // If it finds a card then it will return a truthy index
             // if it doesnt then it will return -1 
-            deck.findIndex((card) => cardName === card.name);
+            let returnVal = deck.find((card) => {
+                if(cardName === card.name) {
+                    return card;
+                }
+            });
+            return returnVal;
+        },
+        // Check if it has parents
+        checkParentDuplicates( parentOne, parentTwo ) {
+            let returnVal = deck.find((card) => {
+                if(card.spliced) {
+                    if(
+                        (card.parents[0] === parentOne && card.parents[1] === parentTwo) ||
+                        (card.parents[0] === parentTwo && card.parents[1] === parentOne)
+                    ) {
+                        return card;
+                    }
+                }
+            });
+            if(returnVal) return returnVal;
+            if(!returnVal) return false;
         },
         // Add a card
         add( obj ) { // mngr function will perform three actions which will be farmed out to subfunctions
             // - Set the ID of the received object to the length of the array
             // - Push the item into the deck
             // - Pass the new object from the deck back to the calling function
-            action( mngr.setID, obj );
+            action( mngr.setID, obj, deck.length );
             action( mngr.pushToDeck, obj );
-            return action( mngr.getCard, obj.id );
+            return deck[obj.id];
         },
         pushToDeck: obj => deck.push(obj),
-        setID: obj => obj.id = deck.length,
+        setID: (obj, length) => obj.id = length,
         // Splice cards
-        
+        getId( name ) { // SPLICED CARD FUNCTION - Get a card id
+            let returnVal = deck.find((card) => {
+                if(name === card.name) {
+                    return card.id;
+                }
+            });
+            return returnVal;
+        },        
         // Get cards
         getCard: id => deck[id],
         // Add Multiple cards - will use a for loop to run through the process
@@ -147,7 +203,8 @@ const cardCtrl = (function() {
                 action( mngr.preAddCheck, {
                     name: newCard[0],
                     defense: newCard[1],
-                    attack: newCard[2]
+                    attack: newCard[2],
+                    spliced: false,
                 });
             }
         },
@@ -193,6 +250,7 @@ const uiCtrl = (function() {
             round: document.querySelector('.labelRound'),
             player: document.querySelector('.labelPlayer'),
             phase: document.querySelector('.labelPhase'),
+            health: document.querySelector('.labelHealth'),
             hand: {
                 attack: document.querySelector('.handDeck .attackStat'),
                 defense: document.querySelector('.handDeck .defenseStat'),
@@ -214,16 +272,19 @@ const uiCtrl = (function() {
             manager: document.querySelector('.deck-manager'),
             actionList: document.querySelector('.actionList'),
         },
+        input: {
+            spliceName: document.querySelector('.spliceName'),
+            spliceNo1: document.querySelector('.spliceNo1'),
+            spliceNo2: document.querySelector('.spliceNo2'),
+        },
         btn: {
             new: document.querySelector('.gameNew'),
-            settings: document.querySelector('.gameSettings')
+            settings: document.querySelector('.gameSettings'),
+            phaseTwoNext: document.querySelector('.deck-manager #next-btn'),
         }
     }
-
+    
     const htmlEles = {
-        decks: {
-
-        },
         cards: {
             basic: card => `<h3>${card.name}</h3> <div class="attributes"> <div class="attack"><p>Attack</p><p>${card.attack}</p></div> <div class="defense"><p>Defense</p><p>${card.defense}</p></div> </div>`, 
             withID: card => `<h3>${card.id}: ${card.name}</h3> <div class="attributes"> <div class="attack"><p>Attack</p><p>${card.attack}</p></div> <div class="defense"><p>Defense</p><p>${card.defense}</p></div> </div>`,
@@ -239,14 +300,18 @@ const uiCtrl = (function() {
     }
 
     const ctrl = {
-        updateLabels(gameData) {
+        updateLabels(gameData, playerData) {
             select.label.round.textContent = gameData.round;
             select.label.player.textContent = gameData.phaseActive + 1;
+            select.label.health.textContent = playerData[gameData.phaseActive].health;
             select.label.phase.textContent = 
                 gameData.phases[gameData.phase].slice(0, 1).toUpperCase() + // Capitalize the first 
                 gameData.phases[gameData.phase].slice(1).toLowerCase();     // letter of the first word
         },
-        addNote( str ) {
+        addNote( str ) { //
+            //      Idea - add colours to this note for player 1 / player 2 / success and unsuccessful
+            //
+            //
             const newNote = document.createElement('div'); // create the element
             newNote.setAttribute('class', 'note'); // set the class - could do this with class list but I like setAttre
             action( game.nextNote ); // update the note counter
@@ -280,9 +345,29 @@ const uiCtrl = (function() {
         fillLoop( arr, type, actions ) {
             for(let i = 0; i < arr.length; i++) action( ctrl.addCardTo, arr[i], type, actions );
         },
-        updateStats( type, stat ) {
+        updateStatLabels( arr, action ) {
+            select.label[action].attack.textContent = arr.attack;
+            select.label[action].defense.textContent = arr.defense;
+        },
+        updateStats( arr ) {
+            const deck = [ 'hand', 'attack', 'defense' ];
+            for(let i = 0; i < arr.length; i++) {
+                action( ctrl.updateStatLabels, arr[i], deck[i] );
+            }
+        },
+        getSpliceInfo() {
+            return [
+                select.input.spliceName.value,
+                select.input.spliceNo1.value,
+                select.input.spliceNo2.value,
+            ]
+        },
+        resetSpliceInfo() {
+            select.input.spliceName.value = '';
+            select.input.spliceNo1.value = '';
+            select.input.spliceNo2.value = '';
+        },
 
-        }
     }
 
     return {
@@ -321,6 +406,7 @@ const gameCtrl = (function(){
     const card = cardCtrl.getMngr();
     const deck = cardCtrl.getDeck();
     const ui = uiCtrl.getUiCtrl();
+    const selectors = uiCtrl.getSelect();
 
     // Code dedicated to starting the game, including a function that has been bound to game obj
     // a listener for the new game button
@@ -328,16 +414,24 @@ const gameCtrl = (function(){
         // reset game to default
         this.reset();
         // start a new round
-        this.firstRound();
         // update the UI and add a note
-        action( ui.updateLabels, game );
         action( ui.addNote, `Starting New Game`);
         action( ui.addNote, `Starting round ${game.round} with player ${game.activePlayer + 1} doing ${game.phases[game.phase]}`);
         action( phaseMngr[0].start ); // Start the game with the first round
     }
+    const endGame = function() {
+        game.
+        action( ui.addNote, ``)
+    }
+
     const phaseMngr = [
         {   // Phase 0
             start() {
+                action( game.nextPhase );
+                action( game.nextRound );
+                action( game.swapPlayers );
+                action( ui.updateLabels, game, players );
+                action( ui.addNote, `----- Starting ${game.phases[game.phase]} phase -----`);
                 action( fiveCardMngr.getFiveCards ); // Found in the fiveCardMngr which is a collection of methods that controls the majority of actions 
             },
             end() {
@@ -347,24 +441,50 @@ const gameCtrl = (function(){
         },
         {   // Phase 1
             start() {
+                action( phaseMngr[1].updateNextBtnText );
                 action( game.nextPhase );
-                action( ui.updateLabels, game );
-                action( ui.addNote, `Starting ${game.phases[game.phase]} phase`);
+                action( ui.updateLabels, game, players );
+                action( ui.addNote, `----- Starting ${game.phases[game.phase]} phase -----`);
                 action( manageDecks.init );
+                action( phaseMngr[1].nextPlayer );
+            },
+            updateNextBtnText: () => selectors.btn.phaseTwoNext.textContent = 'Next Player',
+            nextPlayerActions() {
+                action( ui.addNote, `Ending Player ${game.phaseActive + 1}'s turn`);
+                game.phaseActive === 0 ? game.phaseActive = 1 : game.phaseActive = 0;
+                action( ui.addNote, `It is Player ${game.phaseActive + 1}'s turn to manage their deck`);
+                action( ui.updateLabels, game, players );
+                action( manageDecks.fillDecks );
+                action( manageDecks.updatePlayerStats );
+                action( phaseMngr[1].end );
             },
             nextPlayer() {
-
+                selectors.btn.phaseTwoNext.addEventListener('click', phaseMngr[1].nextPlayerActions);
+            },
+            updateEndBtnText: () => selectors.btn.phaseTwoNext.textContent = 'Start Battle!',
+            endPhaseActions() {
+                action( manageDecks.toggleEle );
+                action( ui.addNote, `Player ${game.phaseActive + 1} has ended their go and started the Battle Phase!`);
+                action( phaseMngr[2].start );
             },
             end() {
-
+                action( phaseMngr[1].updateEndBtnText );
+                selectors.btn.phaseTwoNext.removeEventListener('click',  phaseMngr[1].nextPlayerActions); // This needs to be put into a 
+                selectors.btn.phaseTwoNext.addEventListener('click', phaseMngr[1].endPhaseActions);
             },
         },
         {   // Phase 2
             start() {
-
+                selectors.btn.phaseTwoNext.removeEventListener('click', phaseMngr[1].endPhaseActions); // Put this into a function within Phase 2 (1) - it's a bit out of scope sitting in here
+                
+                action( game.nextPhase );
+                action( ui.updateLabels, game, players );
+                game.phaseActive === 0 ? game.phaseActive = 1 : game.phaseActive = 0;
+                action( ui.addNote, `----- Starting ${game.phases[game.phase]} phase -----`);
+                action( battle.start );
             },
             end() {
-
+                action( phaseMngr[0].start );
             },
         }
     ]
@@ -374,6 +494,7 @@ const gameCtrl = (function(){
     const fiveCards = new Array;
     const fiveCardMngr = {
         getFiveCards() {
+            action( ui.updateLabels, game, players );
             action( ui.addNote, `Drawing five random cards from the deck`); // note
             for(let i = 0; i < 5; i++) { // For loop to pick five cards
                 action( fiveCardMngr.createCard );
@@ -382,14 +503,12 @@ const gameCtrl = (function(){
         createCard() {
             const newCard = action( fiveCardMngr.createCardObj );
             action( fiveCardMngr.add, newCard); // add it to the arr
-            action( ui.addNote, `Adding the ${newCard.name} card to pick deck`); // note
             action( ui.addCardTo, newCard, 'basic', 'picker' );  // UI Action to add it to the picker deck
         },
         createCardObj() {
             const randomCard = action( fiveCardMngr.getRandomCard ); // this is the card to add
-            action( fiveCardMngr.createNewCardObj, randomCard);
-            action( fiveCardMngr.getNewId, randomCard );
-            return randomCard;
+            const newCard = action( fiveCardMngr.createNewCardObj, randomCard);
+            return newCard;
         },
         getRandomCard: () => deck[Math.round(Math.random() * (deck.length - 1))],
         createNewCardObj( obj ) {
@@ -398,7 +517,8 @@ const gameCtrl = (function(){
                 attack: obj.attack,
                 defense: obj.defense,
             }
-            if (obj.parents) newCard.parents = newCardObj.parents;
+            action( fiveCardMngr.getNewId, newCardObj );
+            if (obj.parents) newCardObj.parents = obj.parents;
             return newCardObj;
         },
         add: card => fiveCards.push(card), // push the card into the fiveCards array 
@@ -408,7 +528,7 @@ const gameCtrl = (function(){
             action( ui.addNote, `Player ${game.phaseActive + 1} picked the ${fiveCards[id].name} card`);
             action( fiveCardMngr.remove, id );
             action( fiveCardMngr.resetIDandAdd );
-            action( fiveCardMngr.updateGo )
+            action( fiveCardMngr.updateGo );
         },
         pushToHand: ( player, card ) => player.push(card),
         resetIDandAdd: () => {
@@ -425,7 +545,7 @@ const gameCtrl = (function(){
         updateGo() { // This function decides who the pick order is - it works in a similar way to Catan, first player gets first pick, second player gets the next two picks and the first player gets the final pick - when there is only one card left in the round it will be cleared from the deck and the next phase is triggered
             if(fiveCards.length === 4 || fiveCards.length === 2) {
                 game.phaseActive === 0 ? game.phaseActive = 1 : game.phaseActive = 0;
-                action( ui.updateLabels, game );
+                action( ui.updateLabels, game, players );
             } else if(fiveCards.length === 1) {
                 action( ui.clearEle, 'picker' );
                 action( fiveCardMngr.clearAll );
@@ -438,8 +558,10 @@ const gameCtrl = (function(){
     const manageDecks = {
         init() {
             action( manageDecks.resetIndex, players[game.phaseActive].hands[0] );
+            action( manageDecks.resetIndex, players[game.phaseActive === 0 ? 1 : 0].hands[0] );
             action( manageDecks.toggleEle );
             action( manageDecks.fillDecks );
+            action( manageDecks.updatePlayerStats );
         },
         toggleEle: () => action( ui.toggleHideEle, 'manager' ),
         fillDecks: () => action( ui.fillDecks, players[game.phaseActive].hands ),
@@ -450,14 +572,13 @@ const gameCtrl = (function(){
                 players[game.phaseActive].hands[to], 
                 id );
             action( ui.fillDecks, players[game.phaseActive].hands );
+            action( manageDecks.updatePlayerStats );
         },
         arrActions( from, to, id ) {
             action( manageDecks.addTo, to, from[id] );
             action( manageDecks.removeFrom, from, from[id] );
-            console.log(players[0].hands);
             action( manageDecks.resetIndex, from );
             action( manageDecks.resetIndex, to );
-
         },
         addTo: ( to, card ) => to.push(card),
         removeFrom: ( from, card ) => from.splice(card.id, 1),
@@ -465,8 +586,218 @@ const gameCtrl = (function(){
             arr.forEach(function(ele, i) {
                 ele.id = i;
             });
+        },
+        updatePlayerStats() {
+            action( gameObj.setPlayerStats, game.phaseActive ); // Thiis a function within the gameObj that loops through all of the stats
+            action( ui.updateStats, players[game.phaseActive].handStats );
         }
     };
+
+    // This object will include the methods used to splice two cards together
+    const splice = {
+        //      Potential Actions in this section
+        //      Add all card names as lower case and when it comes to displaying them use splice and upper case to capitalize the first letter
+        //
+        //
+        splice() { // This is the main function for combining two cards together so will act as the master routing function
+            // Check if the 'form' has been fully filled in
+            const data = action( ui.getSpliceInfo );
+            if(!data[0] || !data[1] || !data[2]) return action( ui.addNote, `Please complete the Splice Form`);
+            
+            // call the checkName function which will validate if the name is okay to use
+            const card = action( splice.checkName, data[0] );
+            if (card) return action( ui.addNote, `The card name '${card.name}' is already taken, please choose another name`); // Break the function and add a note prompting the player to add a valid name
+
+            // the cards have had their id's reset to be used in the hand/attack/defense decks so we need to get their original ids so that we can check the parents array of a spliced card
+            const [ parentOneId, parentTwoId, cardOne, cardTwo ] = action( splice.getOriginalIds, [ data[1], data[2] ] ); // get ids
+            const splicedCard = action( splice.checkParents, parentOneId, parentTwoId ); 
+            // If the spliced card is false that means that there is no card with the same parent combination
+            // If it is false - create the card
+            if(!splicedCard) {
+                const newAttackStat = action( splice.getAttackStat, cardOne.attack, cardTwo.attack ); // Get the attack stat 
+                const newDefenseStat = action( splice.getDefenseStat, cardOne.defense, cardTwo.defense ); // Get the defense stat
+                // create the card
+                const newCard = action( splice.addToMasterDeck, {
+                    name: data[0],
+                    defense: newDefenseStat,
+                    attack: newAttackStat,
+                    spliced: true,
+                    parents: [parentOneId, parentTwoId],
+                });
+                // Add a note about successfully creating the new type of card
+                action( ui.addNote, `Player ${game.phaseActive + 1} has created the ${newCard.name} card!`);
+                // remove the cards from the player deck
+                action( splice.removeCardFromPlayerHand, cardOne.name );
+                action( splice.removeCardFromPlayerHand, cardTwo.name );
+                // Add the new spliced card to the player deck - first create a local version
+                const localCard  = action( splice.getLocalObj, newCard ); // get an obj copy
+                action( splice.pushToPlayer, localCard ); // push new obj to player
+                // Update the UI
+                action( manageDecks.resetIndex, players[game.phaseActive].hands[0] );
+                action( manageDecks.fillDecks );
+                action( manageDecks.updatePlayerStats );
+                action( ui.resetSpliceInfo );
+            } else if (splicedCard) {
+                // This is the action that will be taken if the card already exists - at the moment it's just action denied but we could change that to remove the cards and put it in their deck automatically OR let them choose if they want to OR automatically detect if any of these cards have already been created and give them the option
+                // ------ POTENTIAL ACTION ------
+                return action( ui.addNote, `A card has already been combined from the ${cardOne.name} card and the ${cardTwo.name} card, please choose a different combination.`);
+            }
+         },
+         checkName( name ) {
+            return action( card.checkForDuplicateName, name );
+         },
+         checkSplice: card => { if ( !card.spliced ) return card.spliced },
+         checkParents: ( parentOne, parentTwo ) => { 
+             return action( card.checkParentDuplicates, parentOne, parentTwo ); 
+        },
+        // This gets the ids from the 
+        getOriginalIds( arr ) {
+            // get the names of the cards to pass into the getId return
+            const one = players[game.phaseActive].hands[0][arr[0]]; 
+            const two = players[game.phaseActive].hands[0][arr[1]];
+            return [
+                action( card.getId, one.name ),
+                action( card.getId, two.name ),
+                one, two,
+            ];            
+        },
+        // Currently uses the same formula for both attack and defense stat - I'm not the greatest at maths but it currently gives a range from one + two of the relevant stat with a potential of up to +3 in it. 
+        getAttackStat( one, two ) {
+            return Math.round((one + two) / 1.2) + 
+                (Math.round(Math.random() * 
+                (Math.round((one + two) / 2.5)))) + 1;
+        },
+        getDefenseStat( one, two ) {
+            return Math.round((one + two) / 1.2) + 
+            (Math.round(Math.random() * 
+            (Math.round((one + two) / 2.5)))) + 1;
+        },
+        // Add it to the master deck
+        addToMasterDeck( obj ) {
+            return action( card.add, obj )
+        }, 
+        removeCardFromPlayerHand( name ) {
+            const id = players[game.phaseActive].hands[0]
+                .findIndex( card => card.name === name ); // Find the current ID of the card so I don't have to update the indexes of the card before calling the function again
+            players[game.phaseActive].hands[0].splice(id, 1); // Remove the found card 
+            action( ui.addNote, `Removing the ${name} card from player ${game.phaseActive + 1}'s hand.`);
+        },
+        getLocalObj( obj ) {
+            const newCardObj = {
+                name: obj.name,
+                attack: obj.attack,
+                defense: obj.defense,
+                spliced: obj.spliced,
+                parents: obj.parents,
+                id: players[game.phaseActive].hands[0].length,
+            }
+            return newCardObj;
+        },
+        pushToPlayer: obj => players[game.phaseActive].hands[0].push(obj),
+    }
+
+    const battle = {
+        start() {
+            // Call a battle and pass an array of the order of attack / defense - check win condition
+            action( battle.battle, [ game.activePlayer, game.oppositePlayer ]);
+            // Call the second battle and pass an array with the opposite of above - check win condition
+            action( battle.battle, [ game.oppositePlayer, game.activePlayer ]);
+            // If win condition is not met - carry on to next round
+            if(!game.gameActive) return
+            action( phaseMngr[2].end );
+        },
+        battle( arr ) { // This is the main battle function used for routing
+
+            // Get the stats for both players - attack : attack and defense - defense : attack and defense 
+            const [ attacker, defender ] = arr;
+            const attackArr = players[attacker].hands[1];
+            const defenseArr = players[defender].hands[2];
+            const [ aAt, aDef, dAt, dDe] = action( 
+                                            battle.getBattleStats, 
+                                            attackArr,
+                                            defenseArr, );
+
+            
+            if( attackArr.length > 0) {
+                // Initiate Attack - check for victory condition in here
+                action( battle.attack, defenseArr, aAt, [attacker, defender] );
+                // Initiate Defense
+                action( battle.defense, attackArr, dAt, [defender, attacker] );
+                action( ui.addNote, `-----`);
+            }
+        },
+        attack( defenseArr, attack, playerIds ) {
+            //  - Hold the attack power for the attack deck in a let variable
+            //  - hold the splice num in a let variable
+            //  - Loop over the 'defending' deck using the attack power - if a card's health is less than the attack power then add one to the splice num and subtrack the card's health from the attack power 
+            action( ui.addNote, `Starting player ${playerIds[0] + 1}'s attack on player ${playerIds[1] + 1}`);
+            const [ attackPower, spliceNum ] = action( battle.fight, defenseArr, attack, playerIds );
+            // Splice the cards from the opponents deck
+            if (spliceNum > 0) action( battle.removeCards, spliceNum, defenseArr );
+            // If the loop ends and there is remaining attack power - subtract that attack power from the opponent players health
+            if (attackPower > 0) {
+                action( battle.subtractPlayerHealth, attackPower, playerIds );
+                action( ui.updateLabels, game, players );
+                // Within the players health subtraction - check for a win condition, if met - finish the game 
+                if(players[playerIds[1]].health <= 0) {
+                    return action( endGame, players[playerIds[0]] );
+                }
+            }
+        },
+        defense( attackArr, attack, playerIds ) {
+            // - Hold the attack power for the defence deck in a let variable
+            // - Hold the splice num in a let variable
+            // - Loop over the 'attackers' deck using the attack power - if a cards health is less than the attack power then add one ot the splice num and subtract the card health from the attack power
+            action( ui.addNote, `Starting player ${playerIds[0] + 1}'s defense attack on player ${playerIds[1] + 1}`);
+            const [ attackPower, spliceNum ] = action( battle.fight, attackArr, attack, playerIds );
+            // Splice the cards from the array
+            if (spliceNum > 0) action( battle.removeCards, spliceNum, attackArr );
+
+        },
+        fight( arr, power, ids ) {
+            let attackPower = power;
+            let splice = 0;
+            // This is a for loop that works through an array and inside it checks if the attackPower remaining is greater than the defense of the card at the current i index. If it is then it will reduce the attackpower by the defense of the current card 
+            for (let i = 0; i < arr.length; i++ ) {
+                if(attackPower >= arr[i].defense) {
+                    action( ui.addNote, `Player ${ids[0] + 1}'s attack on ${arr[i].name} succeeded!`);
+                    attackPower -= arr[i].defense; // Take away the cards defense from the attackPower
+                    splice++; // add a card to be spliced
+                    // Check if there are more cards to find - if it is then log that the player can fight again - if it is the last card then log that this is the end of the battle
+                    if(i < arr.length - 1) {
+                        action( ui.addNote, `Player ${ids[0] + 1} will fight again`);
+                    } else if (i === arr.length - 1) {
+                        action( ui.addNote, `No more cards to battle, ending player ${ids[0] + 1}'s attack`);
+                    }
+                } else if (attackPower <= arr[i].defense) {
+                    // Add a note in to say the attack failed
+                    action( ui.addNote, `Player ${ids[0] + 1}'s attack on ${arr[i].name} failed!`);
+                    attackPower = 0;
+                    break; // If the attack fails then we will break the loop here 
+                }
+            }
+            return [ attackPower, splice ];
+        },
+        getBattleStats( one, two ) {
+            return [ 
+                action( battle.getStat, one, 'attack' ), action( battle.getStat, one, 'defense' ),
+                action( battle.getStat, two, 'attack' ), action( battle.getStat, two, 'defense' ), 
+            ]
+        },
+        getStat( arr, stat ) {
+            let attr = 0;
+            for(const card of arr) attr += card[stat];
+            return attr;
+        },
+        removeCards( num, arr ) {
+            arr.splice( 0, num );
+        },
+        subtractPlayerHealth( attackPower, playerIds ) {
+            action( ui.addNote, `Player ${playerIds[0] + 1} does ${attackPower} damage to ${playerIds[1] + 1}`);
+            players[playerIds[1]].health -= attackPower;
+            action( ui.addNote, `Player ${playerIds[1] + 1} now has ${players[playerIds[1]].health} health remaining`)
+        },
+    }
 
     const newGame = startGame.bind(game); // Binding the game object to start game function so that I can use the this keyword
 
@@ -477,6 +808,7 @@ const gameCtrl = (function(){
         },
         getFCM: () => fiveCardMngr,
         getMD: () => manageDecks,
+        getSP: () => splice,
     }
 })();
 
@@ -493,6 +825,10 @@ const moveCard = function( from, to, id ) {
     md.moveCard( from, to, id );
 }
 
+const sp = gameCtrl.getSP();
+const splice = function() {
+    sp.splice();
+}
 
 // const cardMngr = (function() {
 
@@ -897,8 +1233,13 @@ const moveCard = function( from, to, id ) {
 //         //
 //         // This is the battle round and is largely console.logs
 //         //
+
+
+
 //         // During a battle we will check for the win condition and call that if it is met.
 //         Three: {
+
+
 //             start() {
 //                 console.log(`----------------------------------------------`);
 //                 console.log('Battle One!!!');
@@ -911,6 +1252,9 @@ const moveCard = function( from, to, id ) {
 
 //                 action( round.nextRound ); // at the end of the battles - start the next round 
 //             },
+
+
+
 //             battle( arr ) {
 //                 // not sure why i wrote the below - I think I just wanted some definite data to be passed in - bit weird really.
 //                 const attackingPlayer = arr[0] === 0 ? 0 : 1;
@@ -927,11 +1271,17 @@ const moveCard = function( from, to, id ) {
 //                 action( phase.Three.defend, [defendingPlayer, attackingPlayer], defPlyrAtt );
 //                 console.log(`----------------------------------------------`);
                 
+
 //                 action( phase.Two.resetIds );
 //             },
+
+
+
 //             //   attack and defense are SHOCKINGLY similar and need rewriting to farm some of their functions out
 //             //   during attack we check for the win condition
 //             //
+
+
 //             attack( arr, attackPower ) {
 //                 let attack = attackPower;
 //                 const [ attacker, defender ] = arr;
@@ -939,8 +1289,11 @@ const moveCard = function( from, to, id ) {
 
 //                 const defendingDeck = players[defender].defense;
 //                 console.log(`Starting attack...`);
+
 //                 for(let i = 0; i < defendingDeck.length; i++) {
 //                     console.log(`Player ${attacker + 1} attacks Player ${defender + 1} for ${attack} attack power!`);
+
+
 //                     if (attack >= defendingDeck[i].defense) {
 //                         console.log(`Player ${attacker + 1} defeats the ${defendingDeck[i].name} card (${attack} attack vs ${defendingDeck[i].defense} defense)`);
 //                         attack -= defendingDeck[i].defense;
