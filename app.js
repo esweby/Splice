@@ -412,16 +412,23 @@ const gameCtrl = (function(){
     // a listener for the new game button
     const startGame = function() {
         // reset game to default
-        this.reset();
+        game.reset();
+        // Reset five card arr
+        fiveCardMngr.clearAll();
+        action( ui.clearEle, 'picker' );
+
         // start a new round
         // update the UI and add a note
         action( ui.addNote, `Starting New Game`);
         action( ui.addNote, `Starting round ${game.round} with player ${game.activePlayer + 1} doing ${game.phases[game.phase]}`);
         action( phaseMngr[0].start ); // Start the game with the first round
     }
-    const endGame = function() {
-        game.
-        action( ui.addNote, ``)
+
+    selectors.btn.new.addEventListener('click', startGame);
+
+    const endGame = function( player) {
+        game.gameActive = false;
+        action( ui.addNote, `Player ${player + 1} has won the game!`)
     }
 
     const phaseMngr = [
@@ -557,8 +564,10 @@ const gameCtrl = (function(){
     // This is the second phase of the game, the deck management which includes moving cards and splicing them, unsure quite how I will structure this yet but in the previous iteration it felt like it grew out of control quickly so I will try to farm out as much as possible to other modules and focus this section (more than the last) on the high level stuff
     const manageDecks = {
         init() {
-            action( manageDecks.resetIndex, players[game.phaseActive].hands[0] );
-            action( manageDecks.resetIndex, players[game.phaseActive === 0 ? 1 : 0].hands[0] );
+            action( 
+                manageDecks.resetIndex, players[game.phaseActive === 0 ? 0 : 1].hands[0] );
+            action( 
+                manageDecks.resetIndex, players[game.phaseActive === 0 ? 1 : 0].hands[0] );
             action( manageDecks.toggleEle );
             action( manageDecks.fillDecks );
             action( manageDecks.updatePlayerStats );
@@ -723,7 +732,6 @@ const gameCtrl = (function(){
                 action( battle.attack, defenseArr, aAt, [attacker, defender] );
                 // Initiate Defense
                 action( battle.defense, attackArr, dAt, [defender, attacker] );
-                action( ui.addNote, `-----`);
             }
         },
         attack( defenseArr, attack, playerIds ) {
